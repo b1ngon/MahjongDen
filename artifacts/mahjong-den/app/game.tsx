@@ -360,7 +360,7 @@ export default function GameScreen() {
 
     return (
       <LandscapeWrapper>
-        <View style={[ls.root, { width: LW, height: LH }]}>
+        <View style={[ls.root, { flex: 1 }]}>
           <AnimatedBackground />
 
           {/* ── Compact HUD ── */}
