@@ -1,0 +1,91 @@
+Modify my existing mahjong app so that the screen opened after tapping “Quick Match” is visually redesigned to match the attached premium 3D “Mahjong Den” reference as closely as possible.
+
+Do NOT create a new app from scratch.
+Do NOT modify any game logic, state management, or data flow.
+Keep all existing game rules, tile handling, player turns, scoring, win detection, networking, and callbacks exactly as they are.
+Only change the visual presentation, layout, animation, and styling of the existing Quick Match gameplay screen.
+
+Use the attached reference image as the primary design target.
+The goal is to get extremely close to that screenshot’s:
+- layout structure
+- table perspective
+- visual hierarchy
+- luxury mood
+- dark emerald + gold styling
+- polished 3D mahjong presentation
+
+If the current component structure does not map cleanly to the target layout, refactor the JSX/UI layer as needed, but preserve all existing props, state, logic, and event handlers.
+
+Restyle the following to match the reference:
+
+1. Table & background
+- Dark emerald green felt surface with carved wooden borders and gold trim
+- Warm ambient background with lantern glow, fireplace lighting, and bamboo décor
+- Use dark browns/blacks (#1a1208) behind the table
+- Create a cinematic premium lounge atmosphere
+
+2. Tiles
+- Ivory/cream 3D-look tiles with beveled edges
+- Engraved traditional Chinese symbols
+- Subtle drop shadows and soft depth
+- Sage green backs
+- Player hand tiles large and readable along the bottom edge
+- Opponent walls at top/left/right arranged like a real mahjong table
+
+3. Player panels
+- Four avatar cards around the table for East / South / West / North
+- Each shows avatar, player name, wind seat label, and score
+- Gold-green ornamental frames
+- Active player highlighted
+
+4. Center badge
+- Circular ornate status medallion in the middle
+- Show seat wind, round number, and remaining tile count
+- Example: “EAST 1 / ROUND 3 / 52”
+- Dark center with gold border
+
+5. Top HUD
+- Coins/currency on the left
+- Gift badge, star counter, settings gear on the right
+- Dark semi-transparent premium HUD bar
+- Match the reference layout closely
+
+6. Bottom action bar
+- Glossy dark green buttons for Discard, Hint, Shuffle, Undo
+- Include icon, label, and remaining-use count badge where relevant
+- Gold text/icons
+- Restyle contextual actions like Chow / Pass to match the same premium look
+
+7. Side panels
+- “Pair Dragons” reward indicator on the bottom-left
+- “Wall Remaining” counter on the bottom-right
+
+Color palette:
+- Dark emerald: #1a3a2a
+- Rich gold: #c9a84c
+- Ivory: #f5f0e0
+- Deep brown-black: #1a1208
+- Sage green: #6b8f71
+
+Animations to add (visual only, no logic changes):
+- Tile select lift/glow on tap
+- Smooth tile slide on discard
+- Tile draw/deal animation if possible using existing events
+- Button press bounce
+- Score number counting animation
+- Subtle intro transition when entering this screen from Quick Match
+
+Implementation constraints:
+- Reuse the existing codebase and current Quick Match route/screen
+- Do not modify unrelated screens
+- Keep logic separated from presentation
+- If full real-time 3D is practical in the current stack, use it
+- Otherwise create a high-end pseudo-3D / 2.5D result that still looks extremely close to the reference
+- Optimize for mobile performance
+
+Deliverables:
+- Update the actual existing Quick Match gameplay screen
+- Show the exact files changed
+- Provide complete code, not pseudocode
+- Add any necessary reusable presentation components only if needed
+- Briefly explain how the new UI connects to the existing screen without changing game logic
