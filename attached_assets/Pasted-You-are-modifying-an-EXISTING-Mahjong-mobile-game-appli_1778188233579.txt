@@ -1,0 +1,380 @@
+You are modifying an EXISTING Mahjong mobile game application.
+
+Your task is to visually redesign ONLY the gameplay screen that opens after pressing “Quick Match” so that it matches the attached “Mahjong Den” premium 3D reference images as closely as possible.
+
+IMPORTANT RULES:
+
+- DO NOT create a new app.
+- DO NOT rewrite the architecture.
+- DO NOT change existing game logic.
+- DO NOT change networking.
+- DO NOT change matchmaking.
+- DO NOT change state management.
+- DO NOT change turn logic.
+- DO NOT change tile validation.
+- DO NOT change scoring or win detection.
+- DO NOT remove existing callbacks or event handling.
+- DO NOT alter data flow.
+- DO NOT break any current gameplay functionality.
+
+You are ONLY redesigning the presentation layer, UI layout, visual hierarchy, theming, animation, and 3D scene styling of the existing gameplay screen.
+
+---
+
+GOAL
+
+Transform the existing gameplay experience into a premium “Mahjong Den” atmosphere:
+
+- luxurious
+- cozy
+- cinematic
+- social
+- warm
+- elegant
+- immersive
+
+The final result should feel like:
+“A private high-end mahjong lounge hidden inside an upscale Asian-inspired den.”
+
+The atmosphere should feel:
+
+- premium
+- polished
+- modern
+- slightly mysterious
+- inviting
+- not casino-cheap
+- not overly cluttered
+- not anime-heavy
+- not realistic photography
+
+Reference inspirations:
+
+- warm lantern lighting
+- dark emerald green
+- polished walnut wood
+- subtle gold accents
+- jade-inspired materials
+- soft volumetric lighting
+- ambient lounge atmosphere
+- premium multiplayer game UI
+
+---
+
+VISUAL DIRECTION
+
+COLOR PALETTE:
+Primary:
+
+- dark emerald green
+- jade green
+- walnut brown
+- matte black
+- warm gold accents
+
+Secondary:
+
+- parchment ivory
+- soft lantern orange
+- muted bronze
+- bamboo green
+
+Avoid:
+
+- bright neon colors
+- oversaturated reds
+- cheap casino aesthetics
+- flat white backgrounds
+- generic mobile game gradients
+
+---
+
+GAME TABLE
+
+Redesign the existing table visually while preserving current gameplay positioning and interactions.
+
+Requirements:
+
+- Premium 3D mahjong table
+- Emerald felt surface
+- Detailed carved wooden border
+- Gold inlays or subtle engraved patterns
+- Soft reflections
+- High-end material appearance
+- Ambient rim lighting
+- Rounded premium edges
+
+The table should feel:
+
+- tactile
+- expensive
+- cozy
+- readable
+
+Maintain:
+
+- all tile positioning logic
+- existing interaction zones
+- current touch handling
+- current gameplay coordinates unless necessary for visual polish
+
+---
+
+BACKGROUND / ENVIRONMENT
+
+Create a premium “Mahjong Den” environment behind the table.
+
+Environment should include:
+
+- warm lanterns
+- wooden shelves
+- bamboo accents
+- subtle plants
+- tea-house atmosphere
+- fireplace OR moonlit window
+- cinematic depth
+- slight environmental fog or depth blur
+
+Background should NOT distract from gameplay.
+
+Use:
+
+- depth of field
+- atmospheric lighting
+- soft shadows
+- warm glow effects
+
+Avoid:
+
+- visual clutter
+- heavy motion
+- bright animations behind tiles
+
+---
+
+TILES
+
+Redesign the mahjong tiles to feel premium and tactile.
+
+Tile requirements:
+
+- ivory/jade inspired materials
+- subtle bevels
+- physically believable thickness
+- soft shadows
+- polished edges
+- elegant symbol rendering
+- crisp readability
+
+Tile symbols should feel:
+
+- handcrafted
+- refined
+- premium
+- traditional but modernized
+
+Avoid:
+
+- flat sprites
+- low-contrast markings
+- cartoonish styling
+
+Tile interactions:
+
+- subtle hover glow
+- smooth lift animation
+- satisfying placement motion
+- soft shadow movement
+
+---
+
+PLAYER AVATARS
+
+Replace generic player portraits with stylized avatar medallions.
+
+Default avatar system:
+Chinese zodiac-inspired artwork:
+
+- Dragon
+- Tiger
+- Rabbit
+- Horse
+- Snake
+- Ox
+  etc.
+
+Style:
+
+- illustrated
+- premium
+- elegant
+- slightly embossed medallion look
+
+NOT:
+
+- realistic photos
+- uncanny AI faces
+- anime faces
+
+Avatars should integrate naturally into the den aesthetic.
+
+---
+
+UI DESIGN
+
+The UI should feel minimal, premium, and readable.
+
+Buttons:
+
+- dark polished surfaces
+- gold outlines
+- subtle glow on hover/press
+- rounded corners
+- tactile depth
+
+Panels:
+
+- semi-transparent dark overlays
+- elegant borders
+- subtle gradients
+- premium typography
+
+Typography:
+
+- elegant serif OR refined modern font
+- avoid arcade/casino fonts
+- maintain readability on mobile
+
+Reduce visual noise.
+
+Prioritize:
+
+- breathing room
+- hierarchy
+- focus on gameplay table
+
+---
+
+ANIMATION STYLE
+
+All animations should feel:
+
+- smooth
+- weighted
+- cinematic
+- polished
+
+Use:
+
+- easing curves
+- fade transitions
+- subtle motion
+- ambient particle effects sparingly
+
+Examples:
+
+- tile draw animation
+- tile discard slide
+- glowing turn indicator
+- smooth camera transitions
+- soft UI fades
+
+Avoid:
+
+- flashy casino effects
+- excessive particles
+- exaggerated bounce animations
+
+---
+
+CAMERA / LAYOUT
+
+Keep gameplay readability first.
+
+Preferred layout:
+
+- centered table
+- slight perspective angle
+- cinematic but practical
+- maintain visibility of all players
+
+The gameplay area should immediately communicate:
+“This is a premium multiplayer mahjong experience.”
+
+---
+
+THEME SYSTEM SUPPORT
+
+Structure the visual layer so future premium themes can be supported later:
+
+- Jade Dragon Den
+- Midnight Lounge
+- Bamboo Garden
+- Imperial Palace
+- Spirit Realm
+- Seasonal event themes
+
+Future themes should be swappable through:
+
+- materials
+- lighting
+- table textures
+- environmental props
+- tile backs
+- ambient particles
+
+WITHOUT rewriting gameplay systems.
+
+---
+
+PERFORMANCE REQUIREMENTS
+
+Maintain strong mobile performance.
+
+Optimize:
+
+- lighting
+- particles
+- texture sizes
+- material complexity
+
+Target:
+
+- smooth gameplay
+- responsive tile interactions
+- stable framerate
+
+Do not overbuild unnecessary scene complexity.
+
+---
+
+IMPLEMENTATION PRIORITY
+
+Priority order:
+
+1. Table redesign
+2. Tile redesign
+3. Lighting/environment
+4. UI polish
+5. Animation polish
+6. Avatar redesign
+7. Ambient effects
+
+---
+
+FINAL GOAL
+
+The finished Quick Match gameplay screen should feel like:
+
+- a premium social mahjong lounge
+- visually cohesive
+- immersive
+- elegant
+- modern
+- highly polished
+- monetizable through cosmetics/themes later
+
+Everything should feel intentionally designed under ONE unified art direction.
+
+The user should immediately feel:
+“I’m playing Mahjong inside an exclusive private den.”

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform,
   Dimensions, Image, Animated, ScrollView,
@@ -23,6 +23,7 @@ import MeldDisplay from '@/components/MeldDisplay';
 import AnimatedBackground from '@/components/AnimatedBackground';
 
 const { width: SW } = Dimensions.get('window');
+const PANEL_W = Math.min(SW * 0.27, 96);
 
 const CHAR: Record<string, any> = {
   luna:   require('../assets/images/char_luna.png'),
@@ -31,80 +32,109 @@ const CHAR: Record<string, any> = {
   sensei: require('../assets/images/char_sensei.png'),
 };
 
-// ─── Premium corner portrait panel ────────────────────────────────────────────
+// ─── Ornate corner portrait panel ─────────────────────────────────────────────
 function CornerPanel({
-  characterKey, name, score, seatWind, isActive, isRiichi,
+  characterKey, name, score, seatWind, isActive, isRiichi, label,
 }: {
   characterKey: string; name: string; score: number;
-  seatWind: number; isActive: boolean; isRiichi: boolean;
+  seatWind: number; isActive: boolean; isRiichi: boolean; label?: string;
 }) {
-  const glow = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (isActive) {
       Animated.loop(Animated.sequence([
-        Animated.timing(glow, { toValue: 1, duration: 600, useNativeDriver: false }),
-        Animated.timing(glow, { toValue: 0, duration: 600, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 0, duration: 700, useNativeDriver: false }),
       ])).start();
     } else {
-      glow.setValue(0);
+      pulse.setValue(0);
     }
   }, [isActive]);
 
-  const borderColor = glow.interpolate({ inputRange: [0,1], outputRange: ['#2A5A2A', '#C9A030'] });
+  const borderColor = pulse.interpolate({
+    inputRange: [0, 1], outputRange: ['#3A5A2A', '#D4A840'],
+  });
+  const shadowOpacity = pulse.interpolate({
+    inputRange: [0, 1], outputRange: [0, 0.8],
+  });
 
   return (
-    <Animated.View style={[styles.cornerPanel, { borderColor }]}>
-      <LinearGradient colors={['#0F1E0F', '#1A2F1A']} style={styles.cornerPanelInner}>
-        <View style={styles.cornerWindBadge}>
-          <Text style={styles.cornerWindText}>{WIND_CHARS[seatWind - 1]}</Text>
+    <Animated.View style={[styles.panel, { borderColor }]}>
+      {/* Gold corner ornaments */}
+      <View style={[styles.panelCornerOrnament, { top: 0, left: 0 }]} />
+      <View style={[styles.panelCornerOrnament, { top: 0, right: 0 }]} />
+      <LinearGradient
+        colors={['#0C1A0C', '#152415', '#0E1A0E'] as [string,string,string]}
+        style={styles.panelInner}
+      >
+        {/* Wind seat label */}
+        <View style={styles.panelWindRow}>
+          <Text style={styles.panelWindSeat}>{label ?? WIND_CHARS[seatWind - 1]}</Text>
+          {isRiichi && <Text style={styles.panelRiichi}>RIICHI</Text>}
         </View>
-        <Image source={CHAR[characterKey]} style={styles.cornerAvatar} resizeMode="cover" />
-        <Text style={styles.cornerName} numberOfLines={1}>{name}</Text>
-        <Text style={styles.cornerScore}>{score.toLocaleString()}</Text>
-        {isRiichi && <Text style={styles.riichiPip}>RIICHI</Text>}
-        {isActive && <View style={styles.cornerActiveDot} />}
+        {/* Avatar */}
+        <View style={styles.panelAvatarWrap}>
+          <Image source={CHAR[characterKey]} style={styles.panelAvatar} resizeMode="cover" />
+          {isActive && (
+            <Animated.View style={[styles.panelActiveRing, { opacity: shadowOpacity }]} />
+          )}
+        </View>
+        {/* Name & score */}
+        <Text style={styles.panelName} numberOfLines={1}>{name}</Text>
+        <Text style={styles.panelScore}>{score.toLocaleString()}</Text>
       </LinearGradient>
     </Animated.View>
   );
 }
 
-// ─── Sage-green face-down tiles row ───────────────────────────────────────────
+// ─── 3D-style face-down tile wall (horizontal row) ────────────────────────────
 function TileWallRow({ count, melds }: { count: number; melds?: any[] }) {
   const n = Math.min(count, 14);
+  if (melds && melds.length > 0) {
+    return (
+      <View style={styles.wallRowWrap}>
+        <MeldDisplay melds={melds} />
+      </View>
+    );
+  }
   return (
-    <View style={styles.wallRow}>
+    <View style={styles.wallRowWrap}>
       {Array.from({ length: n }).map((_, i) => (
-        <View key={i} style={styles.wallTileH} />
-      ))}
-      {melds && melds.length > 0 && (
-        <View style={{ marginLeft: 4 }}>
-          <MeldDisplay melds={melds} />
+        <View key={i} style={styles.wallTileH}>
+          <View style={styles.wallTileHTop} />
+          <View style={styles.wallTileHRight} />
         </View>
-      )}
+      ))}
     </View>
   );
 }
 
-// ─── Sage-green face-down tiles column ────────────────────────────────────────
+// ─── 3D-style face-down tile wall (vertical column) ──────────────────────────
 function TileWallCol({ count, melds }: { count: number; melds?: any[] }) {
   const n = Math.min(count, 10);
+  if (melds && melds.length > 0) {
+    return (
+      <View style={styles.wallColWrap}>
+        <MeldDisplay melds={melds} />
+      </View>
+    );
+  }
   return (
-    <View style={styles.wallCol}>
+    <View style={styles.wallColWrap}>
       {Array.from({ length: n }).map((_, i) => (
-        <View key={i} style={styles.wallTileV} />
-      ))}
-      {melds && melds.length > 0 && (
-        <View style={{ marginTop: 3 }}>
-          <MeldDisplay melds={melds} />
+        <View key={i} style={styles.wallTileV}>
+          <View style={styles.wallTileVTop} />
+          <View style={styles.wallTileVRight} />
         </View>
-      )}
+      ))}
     </View>
   );
 }
 
 // ─── Discard grid zone ────────────────────────────────────────────────────────
-function DiscardZone({ discards, cols = 4, minRows = 2 }: { discards: Tile[]; cols?: number; minRows?: number }) {
-  const visible = discards.slice(-cols * (minRows + 1));
+function DiscardZone({ discards, cols, minRows = 2 }: { discards: Tile[]; cols: number; minRows?: number }) {
+  const visible = discards.slice(-cols * 4);
   const rows: Tile[][] = [];
   for (let i = 0; i < visible.length; i += cols) rows.push(visible.slice(i, i + cols));
   while (rows.length < minRows) rows.push([]);
@@ -123,25 +153,23 @@ function DiscardZone({ discards, cols = 4, minRows = 2 }: { discards: Tile[]; co
   );
 }
 
-// ─── Center medallion ─────────────────────────────────────────────────────────
+// ─── Ornate center medallion ───────────────────────────────────────────────────
 function Medallion({ roundWind, dealer, tilesLeft }: { roundWind: number; dealer: number; tilesLeft: number }) {
   const windName = ['EAST','SOUTH','WEST','NORTH'][roundWind - 1] ?? 'EAST';
   return (
-    <View style={styles.medallion}>
-      <View style={styles.medallionRing}>
-        <LinearGradient colors={['#0A1E0E', '#061408']} style={styles.medallionCore}>
-          <Text style={styles.medallionWind}>{windName} {dealer + 1}</Text>
-          <View style={styles.medallionDivider} />
-          <Text style={styles.medallionRound}>ROUND</Text>
-          <View style={styles.medallionDivider} />
-          <Text style={styles.medallionCount}>{tilesLeft}</Text>
-        </LinearGradient>
-      </View>
+    <View style={styles.medallionOuter}>
+      <LinearGradient colors={['#1A1200', '#0E0C00'] as [string,string]} style={styles.medallionBody}>
+        <Text style={styles.medallionLine1}>{windName} {dealer + 1}</Text>
+        <View style={styles.medallionHRule} />
+        <Text style={styles.medallionLabel}>ROUND</Text>
+        <View style={styles.medallionHRule} />
+        <Text style={styles.medallionCount}>{tilesLeft}</Text>
+      </LinearGradient>
     </View>
   );
 }
 
-// ─── Glossy action button ──────────────────────────────────────────────────────
+// ─── Glossy premium action button ─────────────────────────────────────────────
 function GlossyBtn({
   icon, label, count, onPress, variant = 'default', disabled = false, wide = false,
 }: {
@@ -149,36 +177,50 @@ function GlossyBtn({
   onPress: () => void; variant?: 'default'|'win'|'pong'|'gong'|'chow'|'riichi';
   disabled?: boolean; wide?: boolean;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   function press() {
+    if (disabled) return;
     Animated.sequence([
-      Animated.timing(scale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 8 }),
+      Animated.timing(scaleAnim, { toValue: 0.92, duration: 70, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 220, friction: 7 }),
     ]).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   }
 
-  const gradients: Record<string, string[]> = {
-    default: ['#1F3D1F', '#122612'],
-    win:     ['#5A0A0A', '#3A0606'],
-    pong:    ['#2A0A5A', '#18063A'],
-    gong:    ['#0A2A5A', '#06183A'],
-    chow:    ['#0A4A1A', '#063010'],
-    riichi:  ['#5A3A00', '#3A2400'],
+  const gradMap: Record<string, [string,string]> = {
+    default: ['#1E3C1E', '#112411'],
+    win:     ['#5A0C0C', '#3A0606'],
+    pong:    ['#2D0A5C', '#1C0638'],
+    gong:    ['#0A2B5C', '#061838'],
+    chow:    ['#0A4C1A', '#063010'],
+    riichi:  ['#5C3C00', '#3A2600'],
+  };
+
+  const borderMap: Record<string, string> = {
+    default: '#2E5A2E',
+    win:     '#8A1A1A',
+    pong:    '#4A1A8A',
+    gong:    '#1A3A8A',
+    chow:    '#1A6A30',
+    riichi:  '#8A5A00',
   };
 
   return (
-    <Animated.View style={{ transform: [{ scale }], opacity: disabled ? 0.35 : 1 }}>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, disabled && { opacity: 0.32 }]}>
       <TouchableOpacity onPress={press} disabled={disabled} activeOpacity={1}>
-        <LinearGradient colors={gradients[variant] as [string,string]} style={[styles.glossyBtn, wide && styles.glossyBtnWide]}>
-          <View style={styles.glossyBtnInner}>
-            <Text style={[styles.glossyIcon, variant === 'win' && { color: '#FF6B6B' }]}>{icon}</Text>
-            <Text style={[styles.glossyLabel, variant === 'win' && { color: '#FF8888' }]}>{label}</Text>
-          </View>
+        <LinearGradient
+          colors={gradMap[variant]}
+          style={[styles.glossyBtn, wide && styles.glossyBtnWide, { borderColor: borderMap[variant] }]}
+        >
+          {/* Gloss highlight strip */}
+          <View style={styles.glossySheen} />
+          <Text style={[styles.glossyIcon, variant === 'win' && { color: '#FF7070' }]}>{icon}</Text>
+          <Text style={[styles.glossyLabel, variant === 'win' && { color: '#FF8888' }]}>{label}</Text>
           {count !== undefined && (
-            <View style={styles.glossyCount}>
-              <Text style={styles.glossyCountText}>{count}</Text>
+            <View style={styles.glossyBadge}>
+              <Text style={styles.glossyBadgeText}>{count}</Text>
             </View>
           )}
         </LinearGradient>
@@ -187,7 +229,7 @@ function GlossyBtn({
   );
 }
 
-// ─── Main game screen ─────────────────────────────────────────────────────────
+// ─── Main game screen ──────────────────────────────────────────────────────────
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
 
@@ -219,7 +261,7 @@ export default function GameScreen() {
   useEffect(() => { if (phase === 'not_started') startGame(); }, []);
 
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
-  const [chiPicker, setChiPicker]           = useState(false);
+  const [chiPicker, setChiPicker] = useState(false);
 
   // ── Discard popup ──────────────────────────────────────────────────────────
   const [popupData, setPopupData] = useState<{ tile: Tile; name: string } | null>(null);
@@ -237,13 +279,13 @@ export default function GameScreen() {
         setPopupData({ tile, name: p.name });
         Animated.sequence([
           Animated.parallel([
-            Animated.spring(popupScale,   { toValue: 1.5, useNativeDriver: true, tension: 130, friction: 7 }),
-            Animated.timing(popupOpacity, { toValue: 1,   duration: 100, useNativeDriver: true }),
+            Animated.spring(popupScale,   { toValue: 1.5, useNativeDriver: true, tension: 140, friction: 7 }),
+            Animated.timing(popupOpacity, { toValue: 1,   duration: 90,  useNativeDriver: true }),
           ]),
-          Animated.delay(700),
+          Animated.delay(680),
           Animated.parallel([
-            Animated.timing(popupScale,   { toValue: 0.3, duration: 250, useNativeDriver: true }),
-            Animated.timing(popupOpacity, { toValue: 0,   duration: 250, useNativeDriver: true }),
+            Animated.timing(popupScale,   { toValue: 0.3, duration: 200, useNativeDriver: true }),
+            Animated.timing(popupOpacity, { toValue: 0,   duration: 200, useNativeDriver: true }),
           ]),
         ]).start(() => setPopupData(null));
       }
@@ -251,14 +293,14 @@ export default function GameScreen() {
     });
   }, [players]);
 
-  // ── Call flash ─────────────────────────────────────────────────────────────
+  // ── Call window flash ──────────────────────────────────────────────────────
   const flashAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (phase === 'call_window') {
       Animated.loop(Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 0.5, duration: 350, useNativeDriver: true }),
-        Animated.timing(flashAnim, { toValue: 1,   duration: 350, useNativeDriver: true }),
-      ]), { iterations: 3 }).start();
+        Animated.timing(flashAnim, { toValue: 0.55, duration: 380, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 1,    duration: 380, useNativeDriver: true }),
+      ]), { iterations: 4 }).start();
       if (callOptions.canRon) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [phase]);
@@ -272,19 +314,19 @@ export default function GameScreen() {
   }, [phase]);
 
   const human   = players[0];
-  const aiRight = players[1]; // Ryuu, right side
-  const aiLeft  = players[2]; // Kira, left side
-  const aiTop   = players[3]; // Sensei, top
+  const aiRight = players[1];
+  const aiLeft  = players[2];
+  const aiTop   = players[3];
 
   const fullHand  = human.drawnTile ? [...human.hand, human.drawnTile] : human.hand;
   const canTsumo  = phase === 'player_turn' && currentPlayer === 0 && isWinningHand(fullHand, human.melds);
   const canRiichi = gameMode === 'riichi' && phase === 'player_turn' && currentPlayer === 0 &&
     !human.isRiichi && human.melds.every(m => m.type === 'ankan') && isTenpai(human.hand, human.melds);
+
   const isPlayerTurn = phase === 'player_turn' && currentPlayer === 0;
   const isCallWindow = phase === 'call_window';
-
-  const terms    = MODE_TERMS[gameMode];
-  const modeInfo = GAME_MODE_MAP[gameMode];
+  const terms        = MODE_TERMS[gameMode];
+  const modeInfo     = GAME_MODE_MAP[gameMode];
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -299,246 +341,304 @@ export default function GameScreen() {
   const leftCount  = aiLeft.hand.length  + (aiLeft.drawnTile  ? 1 : 0);
   const rightCount = aiRight.hand.length + (aiRight.drawnTile ? 1 : 0);
 
+  // Wind labels for seat positions
+  const windLabel = (wind: number) => ['EAST','SOUTH','WEST','NORTH'][wind-1] ?? '–';
+
   return (
     <View style={[styles.root, { paddingTop: topPad }]}>
       <AnimatedBackground />
 
       {/* ── TOP HUD ─────────────────────────────────────────────────────────── */}
       <View style={styles.hud}>
-        <TouchableOpacity style={styles.hudBtn} onPress={() => router.back()}>
-          <Text style={styles.hudBtnText}>☰</Text>
+        <TouchableOpacity style={styles.hudMenuBtn} onPress={() => router.back()}>
+          <Text style={styles.hudMenuText}>☰</Text>
         </TouchableOpacity>
-        <LinearGradient colors={['#1A1200', '#2A1E00']} style={styles.coinBadge}>
-          <Text style={styles.coinIcon}>🪙</Text>
-          <Text style={styles.coinText}>{coins.toLocaleString()}</Text>
+        <LinearGradient colors={['#1E1600','#2A1E00'] as [string,string]} style={styles.hudCoin}>
+          <Text style={styles.hudCoinIcon}>🪙</Text>
+          <Text style={styles.hudCoinText}>{coins.toLocaleString()}</Text>
+          <View style={styles.hudCoinPlus}><Text style={styles.hudCoinPlusText}>+</Text></View>
         </LinearGradient>
         <View style={{ flex: 1 }} />
-        <Text style={styles.hudMode}>{modeInfo.flag}</Text>
-        <TouchableOpacity style={styles.hudBtn} onPress={() => router.back()}>
-          <Text style={styles.hudBtnText}>⚙</Text>
+        <View style={styles.hudGiftBadge}>
+          <Text style={styles.hudGiftIcon}>🎁</Text>
+          <View style={styles.hudNotifDot}><Text style={styles.hudNotifText}>3</Text></View>
+        </View>
+        <View style={styles.hudStarBadge}>
+          <Text style={styles.hudStarIcon}>★</Text>
+          <Text style={styles.hudStarCount}>12</Text>
+        </View>
+        <TouchableOpacity style={styles.hudGear}>
+          <Text style={styles.hudGearText}>⚙</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── TOP PANEL ROW: [TOP-LEFT opponent] [TITLE] [TOP-RIGHT opponent] ── */}
+      {/* ── PREMIUM TITLE ───────────────────────────────────────────────────── */}
+      <View style={styles.titleRow}>
+        <View style={styles.titleLine} />
+        <View style={styles.titleCenter}>
+          <Text style={styles.titleDragon}>🐉</Text>
+          <Text style={styles.titleText}>MAHJONG DEN</Text>
+          <View style={styles.titleSubLine}>
+            <View style={styles.titleDash} />
+            <Text style={styles.titleSub}>{modeInfo.name}</Text>
+            <View style={styles.titleDash} />
+          </View>
+        </View>
+        <View style={styles.titleLine} />
+      </View>
+
+      {/* ── OPPONENT TOP PANELS ──────────────────────────────────────────────── */}
       <View style={styles.topPanelRow}>
         <CornerPanel
           characterKey={aiTop.characterKey}
-          name={aiTop.name}
-          score={aiTop.score}
-          seatWind={aiTop.seatWind}
-          isActive={currentPlayer === 3}
-          isRiichi={aiTop.isRiichi}
+          name={aiTop.name} score={aiTop.score}
+          seatWind={aiTop.seatWind} isActive={currentPlayer === 3}
+          isRiichi={aiTop.isRiichi} label={windLabel(aiTop.seatWind)}
         />
-        <View style={styles.titleArea}>
-          <Text style={styles.titleDragon}>🐉</Text>
-          <Text style={styles.titleText}>MAHJONG{'\n'}DEN</Text>
-        </View>
+        <View style={styles.topPanelSpacer} />
         <CornerPanel
           characterKey={aiRight.characterKey}
-          name={aiRight.name}
-          score={aiRight.score}
-          seatWind={aiRight.seatWind}
-          isActive={currentPlayer === 1}
-          isRiichi={aiRight.isRiichi}
+          name={aiRight.name} score={aiRight.score}
+          seatWind={aiRight.seatWind} isActive={currentPlayer === 1}
+          isRiichi={aiRight.isRiichi} label={windLabel(aiRight.seatWind)}
         />
       </View>
 
       {/* ── TABLE ──────────────────────────────────────────────────────────── */}
-      {/* Outer wood border */}
+      {/* Outer walnut wood border */}
       <View style={styles.tableWood}>
-        {/* Gold trim */}
-        <View style={styles.tableGold}>
-          {/* Green felt */}
-          <LinearGradient colors={['#0E3A1C', '#0A2D16', '#072211']} style={styles.tableFelt}>
+        {/* Gold inlay trim */}
+        <View style={styles.tableGoldTrim}>
+          {/* Inner darker wood lip */}
+          <View style={styles.tableInnerLip}>
+            {/* Felt surface */}
+            <LinearGradient
+              colors={['#0E3C1E','#0A2E16','#07200F'] as [string,string,string]}
+              style={styles.tableFelt}
+            >
+              {/* Felt texture inner glow */}
+              <View style={styles.feltGlow} />
 
-            {/* North tile wall */}
-            <View style={styles.northWall}>
-              <TileWallRow count={topCount} melds={aiTop.melds.length > 0 ? aiTop.melds : undefined} />
-            </View>
-
-            {/* Middle row: left wall | discards | right wall */}
-            <View style={styles.tableMiddle}>
-              {/* Left (West) column */}
-              <View style={styles.sideWall}>
-                <TileWallCol count={leftCount} melds={aiLeft.melds.length > 0 ? aiLeft.melds : undefined} />
+              {/* ── NORTH tile wall ─────────────────────────────────────── */}
+              <View style={styles.northWall}>
+                <TileWallRow count={topCount} melds={aiTop.melds.length > 0 ? aiTop.melds : undefined} />
               </View>
 
-              {/* Center discard area */}
-              <View style={styles.centerArea}>
-                {/* North discards */}
-                <View style={styles.discardTop}>
-                  <DiscardZone discards={aiTop.discards} cols={5} minRows={1} />
+              {/* ── MIDDLE: side walls + center discards ─────────────────── */}
+              <View style={styles.tableMiddle}>
+                {/* West (left) wall column */}
+                <View style={styles.sideWallLeft}>
+                  <TileWallCol count={leftCount} melds={aiLeft.melds.length > 0 ? aiLeft.melds : undefined} />
                 </View>
-                {/* Middle: West | Medallion | East */}
-                <View style={styles.discardMid}>
-                  <View style={styles.discardSide}>
-                    <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
+
+                {/* Center discard area */}
+                <View style={styles.centerArea}>
+                  {/* North discards */}
+                  <View style={styles.discardTop}>
+                    <DiscardZone discards={aiTop.discards} cols={5} minRows={1} />
                   </View>
-                  <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} />
-                  <View style={styles.discardSide}>
-                    <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
+                  {/* Mid row: West | Medallion | East */}
+                  <View style={styles.discardMidRow}>
+                    <View style={styles.discardSide}>
+                      <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
+                    </View>
+                    <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} />
+                    <View style={styles.discardSide}>
+                      <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
+                    </View>
+                  </View>
+                  {/* South (human) discards */}
+                  <View style={styles.discardBottom}>
+                    <DiscardZone discards={human.discards} cols={5} minRows={1} />
                   </View>
                 </View>
-                {/* South discards */}
-                <View style={styles.discardBottom}>
-                  <DiscardZone discards={human.discards} cols={5} minRows={1} />
+
+                {/* East (right) wall column */}
+                <View style={styles.sideWallRight}>
+                  <TileWallCol count={rightCount} melds={aiRight.melds.length > 0 ? aiRight.melds : undefined} />
                 </View>
               </View>
 
-              {/* Right (East) column */}
-              <View style={styles.sideWall}>
-                <TileWallCol count={rightCount} melds={aiRight.melds.length > 0 ? aiRight.melds : undefined} />
+              {/* ── PLAYER HAND on felt ──────────────────────────────────── */}
+              <View style={styles.handOnFelt}>
+                <View style={styles.handOnFeltDivider} />
+                {/* Melds */}
+                {human.melds.length > 0 && (
+                  <View style={styles.handMelds}>
+                    <MeldDisplay melds={human.melds} />
+                  </View>
+                )}
+                {/* Tiles */}
+                <PlayerHand
+                  hand={human.hand}
+                  drawnTile={human.drawnTile}
+                  selectedTileId={selectedTileId}
+                  onSelectTile={handleSelectTile}
+                  isRiichi={human.isRiichi}
+                  disabled={!isPlayerTurn}
+                />
+                {/* Dora indicators (Riichi) */}
+                {gameMode === 'riichi' && dora.length > 0 && (
+                  <View style={styles.doraRow}>
+                    <Text style={styles.doraLabel}>Dora</Text>
+                    {dora.map((t, i) => <MahjongTile key={i} tile={t} tiny />)}
+                  </View>
+                )}
               </View>
-            </View>
 
-            {/* ── PLAYER HAND on felt ─────────────────────────────────────── */}
-            <View style={styles.handOnFelt}>
-              {/* Melds row */}
-              {human.melds.length > 0 && (
-                <View style={styles.meldRow}>
-                  <MeldDisplay melds={human.melds} />
-                </View>
-              )}
-              {/* Tiles */}
-              <PlayerHand
-                hand={human.hand}
-                drawnTile={human.drawnTile}
-                selectedTileId={selectedTileId}
-                onSelectTile={handleSelectTile}
-                isRiichi={human.isRiichi}
-                disabled={!isPlayerTurn}
-              />
-              {/* Dora (Riichi only) */}
-              {gameMode === 'riichi' && dora.length > 0 && (
-                <View style={styles.doraRow}>
-                  <Text style={styles.doraLabel}>Dora</Text>
-                  {dora.map((t, i) => <MahjongTile key={i} tile={t} tiny />)}
-                </View>
-              )}
-            </View>
-
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         </View>
       </View>
 
-      {/* ── BOTTOM PANEL ROW ────────────────────────────────────────────────── */}
+      {/* ── BOTTOM PANELS ────────────────────────────────────────────────────── */}
       <View style={styles.bottomPanelRow}>
         <CornerPanel
           characterKey={aiLeft.characterKey}
-          name={aiLeft.name}
-          score={aiLeft.score}
-          seatWind={aiLeft.seatWind}
-          isActive={currentPlayer === 2}
-          isRiichi={aiLeft.isRiichi}
+          name={aiLeft.name} score={aiLeft.score}
+          seatWind={aiLeft.seatWind} isActive={currentPlayer === 2}
+          isRiichi={aiLeft.isRiichi} label={windLabel(aiLeft.seatWind)}
         />
         <View style={{ flex: 1 }} />
-        {/* Human panel */}
-        <LinearGradient colors={['#0F1E0F', '#1A2F1A']} style={[styles.cornerPanel, styles.humanPanel, { borderColor: isPlayerTurn ? '#C9A030' : '#2A5A2A' }]}>
-          <Image source={CHAR[human.characterKey]} style={styles.cornerAvatar} resizeMode="cover" />
-          <View style={styles.humanInfo}>
-            <Text style={styles.cornerName}>{human.name}</Text>
-            <Text style={styles.cornerWind2}>{WIND_CHARS[human.seatWind-1]}{human.isRiichi ? ' RIICHI' : ''}</Text>
-            <Text style={styles.cornerScore}>{human.score.toLocaleString()}</Text>
-          </View>
-          {isPlayerTurn && <View style={styles.cornerActiveDot} />}
-        </LinearGradient>
+        {/* Human "You" panel */}
+        <Animated.View style={[
+          styles.panel, styles.humanPanel,
+          { borderColor: isPlayerTurn ? '#D4A840' : '#2A4A20' },
+        ]}>
+          <LinearGradient colors={['#0C1A0C','#152415'] as [string,string]} style={styles.humanPanelInner}>
+            <Image source={CHAR[human.characterKey]} style={styles.panelAvatar} resizeMode="cover" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.panelWindSeat}>{windLabel(human.seatWind)}{human.isRiichi ? '  RIICHI' : ''}</Text>
+              <Text style={styles.panelName}>{human.name}</Text>
+              <Text style={styles.panelScore}>{human.score.toLocaleString()}</Text>
+            </View>
+            {isPlayerTurn && <View style={styles.humanActiveDot} />}
+          </LinearGradient>
+        </Animated.View>
       </View>
 
-      {/* ── CALL WINDOW ─────────────────────────────────────────────────────── */}
+      {/* ── CALL WINDOW BANNER ──────────────────────────────────────────────── */}
       {isCallWindow && pendingDiscard && (
         <Animated.View style={[styles.callBanner, { opacity: flashAnim }]}>
-          <View style={styles.callTileWrap}>
-            <Text style={styles.callFrom}>{players[pendingDiscard.playerIndex].name}</Text>
-            <MahjongTile tile={pendingDiscard.tile} highlighted />
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
-            <View style={styles.callBtns}>
-              {callOptions.canRon && (
-                <GlossyBtn icon="🀄" label={terms.win} variant="win"
-                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanRon(); }} />
-              )}
-              {callOptions.canPon && (
-                <GlossyBtn icon="✦" label={terms.pong} variant="pong" onPress={humanPon} />
-              )}
-              {callOptions.canKan && (
-                <GlossyBtn icon="⬛" label={terms.gong} variant="gong" onPress={humanKan} />
-              )}
-              {chiPicker ? (
-                callOptions.chiOptions.map((opt, i) => {
-                  const nums = opt.map(t => t.number).sort((a, b) => a - b);
-                  return (
-                    <GlossyBtn key={i} icon="→" label={`${nums[0]}-${nums[1]}`} variant="chow"
-                      onPress={() => { setChiPicker(false); humanChi([opt[0].id, opt[1].id]); }} />
-                  );
-                })
-              ) : callOptions.chiOptions.length > 0 && (
-                <GlossyBtn icon="→" label={terms.chow} variant="chow"
-                  onPress={() => {
-                    if (callOptions.chiOptions.length === 1) {
-                      humanChi([callOptions.chiOptions[0][0].id, callOptions.chiOptions[0][1].id]);
-                    } else {
-                      setChiPicker(true);
-                    }
-                  }} />
-              )}
-              <GlossyBtn icon="✕" label={terms.pass}
-                onPress={() => { setChiPicker(false); humanPass(); }} />
+          <LinearGradient colors={['#060E06','#0A160A'] as [string,string]} style={styles.callBannerInner}>
+            <View style={styles.callLeft}>
+              <Text style={styles.callFromLabel}>{players[pendingDiscard.playerIndex].name}</Text>
+              <Text style={styles.callFromSub}>discards</Text>
+              <MahjongTile tile={pendingDiscard.tile} highlighted small />
             </View>
-          </ScrollView>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+              <View style={styles.callBtns}>
+                {chiPicker ? (
+                  callOptions.chiOptions.map((opt, i) => {
+                    const nums = opt.map(t => t.number).sort((a, b) => a - b);
+                    return (
+                      <GlossyBtn key={i} icon="→" label={`${nums[0]}-${nums[1]}`} variant="chow"
+                        onPress={() => { setChiPicker(false); humanChi([opt[0].id, opt[1].id]); }} />
+                    );
+                  })
+                ) : (
+                  <>
+                    {callOptions.canRon && (
+                      <GlossyBtn icon="🀄" label={terms.win} variant="win"
+                        onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanRon(); }} />
+                    )}
+                    {callOptions.canPon && (
+                      <GlossyBtn icon="✦" label={terms.pong} variant="pong" onPress={humanPon} />
+                    )}
+                    {callOptions.canKan && (
+                      <GlossyBtn icon="⬛" label={terms.gong} variant="gong" onPress={humanKan} />
+                    )}
+                    {callOptions.chiOptions.length > 0 && (
+                      <GlossyBtn icon="→" label={terms.chow} variant="chow"
+                        onPress={() => callOptions.chiOptions.length === 1
+                          ? humanChi([callOptions.chiOptions[0][0].id, callOptions.chiOptions[0][1].id])
+                          : setChiPicker(true)
+                        }
+                      />
+                    )}
+                    <GlossyBtn icon="✕" label={terms.pass}
+                      onPress={() => { setChiPicker(false); humanPass(); }} />
+                  </>
+                )}
+              </View>
+            </ScrollView>
+          </LinearGradient>
         </Animated.View>
       )}
 
-      {/* ── BOTTOM ACTION BAR ───────────────────────────────────────────────── */}
+      {/* ── BOTTOM ACTION BAR ─────────────────────────────────────────────────── */}
       {!isCallWindow && (
-        <View style={[styles.actionBar, { paddingBottom: Math.max(botPad, 8) }]}>
-          {/* Left panel: hand info */}
-          <LinearGradient colors={['#100800', '#1A1000']} style={styles.actionLeft}>
-            <Text style={styles.actionLeftLabel}>HAND</Text>
-            <Text style={styles.actionLeftMode}>{modeInfo.flag}</Text>
-            <Text style={styles.actionLeftSub}>{WIND_CHARS[human.seatWind-1]}</Text>
-          </LinearGradient>
+        <LinearGradient
+          colors={['#050A05','#080E06'] as [string,string]}
+          style={[styles.actionBar, { paddingBottom: Math.max(botPad, 8) }]}
+        >
+          {/* Top gold rule */}
+          <View style={styles.actionGoldRule} />
 
-          {/* Center action buttons */}
-          <View style={styles.actionCenter}>
-            {isPlayerTurn ? (
-              <>
-                {canTsumo && (
-                  <GlossyBtn icon="🀄" label={terms.draw} variant="win"
-                    onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanTsumo(); }} />
-                )}
-                {canRiichi && selectedTileId !== null && terms.riichi !== null && (
-                  <GlossyBtn icon="⛩" label={terms.riichi} variant="riichi"
-                    onPress={() => { humanRiichi(selectedTileId!); setSelectedTileId(null); }} />
-                )}
-                <GlossyBtn
-                  icon="↑" label="DISCARD"
-                  disabled={selectedTileId === null || human.isRiichi || canTsumo}
-                  wide
-                  onPress={() => { humanDiscard(selectedTileId!); setSelectedTileId(null); }}
-                />
-              </>
-            ) : (
-              <Text style={styles.waitText}>
-                {phase === 'ai_turn'
-                  ? `${players[currentPlayer]?.name ?? '…'} is thinking…`
-                  : 'Waiting…'}
-              </Text>
-            )}
+          <View style={styles.actionBarRow}>
+            {/* Left: Hand / round info */}
+            <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={styles.actionSidePanel}>
+              <Text style={styles.actionSidePanelTop}>YOUR</Text>
+              <Text style={styles.actionSidePanelMain}>HAND</Text>
+              <View style={styles.actionSideCoin}>
+                <Text style={styles.actionSideCoinIcon}>🪙</Text>
+                <Text style={styles.actionSideCoinAmt}>{human.score.toLocaleString()}</Text>
+              </View>
+            </LinearGradient>
+
+            {/* Center action buttons */}
+            <View style={styles.actionCenter}>
+              {isPlayerTurn ? (
+                <>
+                  {canTsumo && (
+                    <GlossyBtn icon="🀄" label={terms.draw} variant="win" wide
+                      onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanTsumo(); }} />
+                  )}
+                  {canRiichi && selectedTileId !== null && terms.riichi !== null && (
+                    <GlossyBtn icon="⛩" label={terms.riichi} variant="riichi"
+                      onPress={() => { humanRiichi(selectedTileId!); setSelectedTileId(null); }} />
+                  )}
+                  <GlossyBtn
+                    icon="↑" label="DISCARD" wide
+                    disabled={selectedTileId === null || human.isRiichi || canTsumo}
+                    onPress={() => { humanDiscard(selectedTileId!); setSelectedTileId(null); }}
+                  />
+                  {selectedTileId === null && !canTsumo && (
+                    <Text style={styles.hintText}>tap a tile</Text>
+                  )}
+                </>
+              ) : (
+                <View style={styles.waitWrap}>
+                  <Text style={styles.waitDots}>• • •</Text>
+                  <Text style={styles.waitText}>
+                    {phase === 'ai_turn' ? `${players[currentPlayer]?.name} thinking` : 'Starting…'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Right: Wall remaining */}
+            <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={styles.actionSidePanel}>
+              <Text style={styles.actionSidePanelTop}>WALL</Text>
+              <Text style={styles.actionSidePanelTop}>REMAINING</Text>
+              <Text style={styles.actionWallCount}>{tilesLeft}</Text>
+              {/* Mini tile stack icon */}
+              <View style={styles.miniTileStack}>
+                <View style={[styles.miniTile, { bottom: 4, left: 4 }]} />
+                <View style={[styles.miniTile, { bottom: 2, left: 2 }]} />
+                <View style={styles.miniTile} />
+              </View>
+            </LinearGradient>
           </View>
-
-          {/* Right panel: wall count */}
-          <LinearGradient colors={['#100800', '#1A1000']} style={styles.actionRight}>
-            <Text style={styles.actionRightLabel}>WALL</Text>
-            <Text style={styles.actionRightCount}>{tilesLeft}</Text>
-          </LinearGradient>
-        </View>
+        </LinearGradient>
       )}
 
       {/* ── DISCARD POPUP ───────────────────────────────────────────────────── */}
       {popupData && (
-        <Animated.View pointerEvents="none" style={[styles.popupOverlay, { opacity: popupOpacity }]}>
-          <Animated.View style={[styles.popupCard, { transform: [{ scale: popupScale }] }]}>
-            <LinearGradient colors={['#0D3A1A', '#051208']} style={styles.popupInner}>
+        <Animated.View pointerEvents="none" style={[styles.popupOverlay, { opacity: popupOpacity }]} >
+          <Animated.View style={{ transform: [{ scale: popupScale }] }}>
+            <LinearGradient colors={['#0D3A1A','#040E08'] as [string,string]} style={styles.popupCard}>
+              <View style={styles.popupGoldBorder} />
               <Text style={styles.popupName}>{popupData.name}</Text>
               <MahjongTile tile={popupData.tile} />
               <Text style={styles.popupWord}>DISCARDS</Text>
@@ -551,226 +651,306 @@ export default function GameScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const PANEL_W = Math.min(SW * 0.28, 100);
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#070E07' },
+  root: { flex: 1, backgroundColor: '#0A0804' },
 
   // HUD
   hud: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 10, paddingVertical: 5,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderBottomWidth: 1, borderBottomColor: '#1A4020',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: 'rgba(5,4,2,0.72)',
+    borderBottomWidth: 1, borderBottomColor: '#1E3010',
   },
-  hudBtn: { padding: 6 },
-  hudBtnText: { color: '#A09060', fontSize: 16 },
-  coinBadge: {
+  hudMenuBtn: { padding: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' },
+  hudMenuText: { color: '#8A8070', fontSize: 15 },
+  hudCoin: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 14, borderWidth: 1, borderColor: '#7A5A10',
+    borderRadius: 16, borderWidth: 1, borderColor: '#6A4E10',
   },
-  coinIcon: { fontSize: 12 },
-  coinText: { color: '#C9A030', fontWeight: '900', fontSize: 13 },
-  hudMode: { fontSize: 18 },
+  hudCoinIcon: { fontSize: 12 },
+  hudCoinText: { color: '#D4A840', fontWeight: '900', fontSize: 13 },
+  hudCoinPlus: {
+    width: 16, height: 16, borderRadius: 8, backgroundColor: '#2A5A20',
+    alignItems: 'center', justifyContent: 'center', marginLeft: 2,
+  },
+  hudCoinPlusText: { color: '#6ACA50', fontWeight: '900', fontSize: 11, lineHeight: 14 },
+  hudGiftBadge: { position: 'relative', padding: 4 },
+  hudGiftIcon: { fontSize: 18 },
+  hudNotifDot: {
+    position: 'absolute', top: 0, right: 0,
+    width: 14, height: 14, borderRadius: 7, backgroundColor: '#C0321A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  hudNotifText: { color: '#fff', fontSize: 8, fontWeight: '900' },
+  hudStarBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: 'rgba(180,140,20,0.2)', borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: '#7A5A10',
+  },
+  hudStarIcon: { color: '#D4A840', fontSize: 13 },
+  hudStarCount: { color: '#D4A840', fontSize: 11, fontWeight: '800' },
+  hudGear: { padding: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)' },
+  hudGearText: { color: '#8A8070', fontSize: 15 },
 
-  // Top panel row
-  topPanelRow: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: 4, paddingVertical: 4, gap: 4,
+  // Title
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 4, gap: 8,
   },
-  titleArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 4 },
-  titleDragon: { fontSize: 22, lineHeight: 26 },
+  titleLine: { flex: 1, height: 1, backgroundColor: '#3A2A06' },
+  titleCenter: { alignItems: 'center', gap: 0 },
+  titleDragon: { fontSize: 20 },
   titleText: {
-    color: '#C9A030', fontWeight: '900', fontSize: 14,
-    textAlign: 'center', letterSpacing: 2, lineHeight: 17,
-    textShadowColor: 'rgba(200,160,0,0.4)', textShadowRadius: 8,
+    color: '#D4A840', fontWeight: '900', fontSize: 18, letterSpacing: 3,
+    textShadow: '0 0 14px rgba(212,168,64,0.6)',
   } as any,
+  titleSubLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
+  titleDash: { width: 16, height: 1, backgroundColor: '#7A5A10' },
+  titleSub: { color: '#7A6030', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
 
   // Corner panels
-  cornerPanel: {
+  panel: {
     width: PANEL_W, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#2A5A2A',
-    overflow: 'hidden',
+    borderWidth: 1.5,
+    overflow: 'visible',
   },
-  cornerPanelInner: {
-    padding: 6, alignItems: 'center', gap: 3,
-    position: 'relative',
+  panelCornerOrnament: {
+    position: 'absolute', width: 8, height: 8,
+    borderColor: '#D4A840', zIndex: 2,
   },
-  cornerWindBadge: {
-    position: 'absolute', top: 4, left: 4,
-    backgroundColor: '#C9A03020', borderRadius: 4,
-    paddingHorizontal: 4, paddingVertical: 1,
-    borderWidth: 1, borderColor: '#C9A03060',
+  panelInner: { borderRadius: 8.5, padding: 6, alignItems: 'center', gap: 2 },
+  panelWindRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2,
+    backgroundColor: 'rgba(212,168,64,0.12)',
+    borderRadius: 4, borderWidth: 1, borderColor: 'rgba(212,168,64,0.25)',
   },
-  cornerWindText: { color: '#C9A030', fontSize: 9, fontWeight: '900' },
-  cornerAvatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: '#C9A03070', marginTop: 8 },
-  cornerName: { color: '#F5E8C0', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
-  cornerScore: { color: '#9A8040', fontSize: 9, fontWeight: '600' },
-  cornerWind2: { color: '#C9A030', fontSize: 8 },
-  cornerActiveDot: {
-    position: 'absolute', bottom: 4, right: 4,
-    width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#38A169',
+  panelWindSeat: { color: '#C4A030', fontSize: 8, fontWeight: '900', letterSpacing: 1.5 },
+  panelRiichi: { color: '#FF6060', fontSize: 7, fontWeight: '900', letterSpacing: 0.5 },
+  panelAvatarWrap: { position: 'relative' },
+  panelAvatar: {
+    width: 46, height: 46, borderRadius: 23,
+    borderWidth: 2, borderColor: 'rgba(212,168,64,0.5)',
+    marginVertical: 2,
   },
-  riichiPip: { color: '#FF6B6B', fontSize: 7, fontWeight: '800' },
+  panelActiveRing: {
+    position: 'absolute', top: -3, left: -3, right: -3, bottom: -3,
+    borderRadius: 26, borderWidth: 2, borderColor: '#D4A840',
+  },
+  panelName: { color: '#E8D8A0', fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
+  panelScore: { color: '#8A7040', fontSize: 9, fontWeight: '600' },
 
   // Human panel
-  humanPanel: {
-    width: PANEL_W + 20, flexDirection: 'row', padding: 6, gap: 6,
-    alignItems: 'center',
+  humanPanel: { flex: 1, maxWidth: 180 },
+  humanPanelInner: {
+    borderRadius: 8.5, padding: 8, flexDirection: 'row',
+    alignItems: 'center', gap: 8,
   },
-  humanInfo: { flex: 1 },
+  humanActiveDot: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#40CA38',
+    position: 'absolute', top: 6, right: 6,
+  },
 
-  // Table
-  tableWood: {
-    flex: 1, marginHorizontal: 4, marginVertical: 2,
-    borderRadius: 16, padding: 7,
-    backgroundColor: '#2A1204',
-    borderWidth: 1, borderColor: '#4A2208',
+  // Panel rows
+  topPanelRow: {
+    flexDirection: 'row', paddingHorizontal: 4, paddingBottom: 3, gap: 4,
   },
-  tableGold: {
-    flex: 1, borderRadius: 11, padding: 2,
-    backgroundColor: '#C9A030',
+  topPanelSpacer: { flex: 1 },
+  bottomPanelRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 4, paddingTop: 3, gap: 4,
+  },
+
+  // Table structure
+  tableWood: {
+    flex: 1, marginHorizontal: 4,
+    borderRadius: 18, padding: 8,
+    backgroundColor: '#2E1606',
+    boxShadow: 'inset 0 4px 8px rgba(0,0,0,0.6), 0 2px 12px rgba(0,0,0,0.8)',
+  } as any,
+  tableGoldTrim: {
+    flex: 1, borderRadius: 12, padding: 2.5,
+    backgroundColor: '#C8A028',
+  },
+  tableInnerLip: {
+    flex: 1, borderRadius: 10, padding: 1,
+    backgroundColor: '#1A0A02',
   },
   tableFelt: {
     flex: 1, borderRadius: 9, overflow: 'hidden',
-    padding: 6,
+    paddingHorizontal: 5, paddingTop: 6, paddingBottom: 4,
+    position: 'relative',
   },
+  feltGlow: {
+    position: 'absolute', top: '20%', left: '15%', right: '15%', height: '40%',
+    backgroundImage: 'radial-gradient(ellipse, rgba(30,120,60,0.18) 0%, transparent 70%)',
+    pointerEvents: 'none',
+  } as any,
 
   // North wall
   northWall: {
-    paddingHorizontal: 4, paddingBottom: 6,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(100,200,120,0.15)',
-    alignItems: 'center',
+    alignItems: 'center', paddingBottom: 5,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(80,180,100,0.12)',
   },
-  wallRow: { flexDirection: 'row', gap: 2, flexWrap: 'wrap', justifyContent: 'center' },
+  wallRowWrap: { flexDirection: 'row', gap: 2.5, flexWrap: 'wrap', justifyContent: 'center' },
   wallTileH: {
-    width: 17, height: 24, borderRadius: 3,
-    backgroundColor: '#4A7A55', borderWidth: 1, borderColor: '#6A9A75',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5,
+    width: 16, height: 24, borderRadius: 3,
+    backgroundColor: '#4E8058',
+    position: 'relative',
+    boxShadow: '0 3px 5px rgba(0,0,0,0.55)',
   } as any,
-
-  // Side walls (left/right columns)
-  tableMiddle: { flex: 1, flexDirection: 'row' },
-  sideWall: {
-    width: 34, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 4, paddingHorizontal: 2,
+  wallTileHTop: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 5,
+    backgroundColor: '#D8EDD0', borderRadius: 3,
+    opacity: 0.85,
   },
-  wallCol: { gap: 2 },
-  wallTileV: {
-    width: 24, height: 17, borderRadius: 3,
-    backgroundColor: '#4A7A55', borderWidth: 1, borderColor: '#6A9A75',
-    shadowColor: '#000', shadowOffset: { width: 1, height: 0 }, shadowOpacity: 0.4,
-  } as any,
+  wallTileHRight: {
+    position: 'absolute', top: 5, right: 0, bottom: 0, width: 3,
+    backgroundColor: '#2A4A30', borderRadius: 1,
+    opacity: 0.7,
+  },
 
-  // Center area
-  centerArea: { flex: 1, justifyContent: 'space-between', paddingVertical: 4 },
+  // Side walls
+  tableMiddle: { flex: 1, flexDirection: 'row', paddingVertical: 3 },
+  sideWallLeft: {
+    width: 32, alignItems: 'flex-start', justifyContent: 'flex-start', paddingTop: 2,
+  },
+  sideWallRight: {
+    width: 32, alignItems: 'flex-end', justifyContent: 'flex-start', paddingTop: 2,
+  },
+  wallColWrap: { gap: 2.5 },
+  wallTileV: {
+    width: 24, height: 16, borderRadius: 3,
+    backgroundColor: '#4E8058',
+    position: 'relative',
+    boxShadow: '2px 0 5px rgba(0,0,0,0.5)',
+  } as any,
+  wallTileVTop: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 5,
+    backgroundColor: '#D8EDD0', borderRadius: 3,
+    opacity: 0.85,
+  },
+  wallTileVRight: {
+    position: 'absolute', top: 5, right: 0, bottom: 0, width: 3,
+    backgroundColor: '#2A4A30', borderRadius: 1,
+    opacity: 0.6,
+  },
+
+  // Center
+  centerArea: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 3 },
   discardTop: { alignItems: 'center' },
-  discardMid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+  discardMidRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   discardSide: { flex: 1 },
   discardBottom: { alignItems: 'center' },
-
-  // Discard zones
   discardZone: { gap: 2 },
   discardRow: { flexDirection: 'row', gap: 2 },
-  discardGhost: { width: 22, height: 30 },
+  discardGhost: { width: 22, height: 30, opacity: 0 },
 
   // Medallion
-  medallion: { alignItems: 'center', justifyContent: 'center' },
-  medallionRing: {
-    width: 78, height: 78, borderRadius: 39,
-    backgroundColor: '#C9A030', padding: 3,
-    shadowColor: '#C9A030', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 8,
+  medallionOuter: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: '#C8A028', padding: 3,
+    alignSelf: 'center',
+    boxShadow: '0 0 16px rgba(200,160,40,0.45)',
   } as any,
-  medallionCore: {
-    flex: 1, borderRadius: 36, alignItems: 'center', justifyContent: 'center', gap: 1,
+  medallionBody: {
+    flex: 1, borderRadius: 37, alignItems: 'center', justifyContent: 'center', gap: 1,
+    padding: 6,
   },
-  medallionWind: { color: '#C9A030', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  medallionRound: { color: '#8A7040', fontSize: 8, letterSpacing: 1 },
-  medallionCount: { color: '#F5E8C0', fontSize: 17, fontWeight: '900', lineHeight: 20 },
-  medallionDivider: { width: 30, height: 1, backgroundColor: '#C9A03040' },
+  medallionLine1: { color: '#D4A840', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  medallionHRule: { width: 36, height: 1, backgroundColor: 'rgba(200,160,40,0.4)' },
+  medallionLabel: { color: '#7A6030', fontSize: 8, letterSpacing: 1.5, fontWeight: '600' },
+  medallionCount: { color: '#F0E0A0', fontSize: 19, fontWeight: '900', lineHeight: 22 },
 
   // Hand on felt
-  handOnFelt: {
-    paddingTop: 6,
-    borderTopWidth: 1, borderTopColor: 'rgba(100,200,120,0.2)',
+  handOnFelt: { paddingTop: 4 },
+  handOnFeltDivider: {
+    height: 1, marginBottom: 4,
+    backgroundColor: 'rgba(80,180,100,0.18)',
   },
-  meldRow: { paddingHorizontal: 8, paddingBottom: 4 },
-  doraRow: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 12, paddingBottom: 4 },
-  doraLabel: { color: '#7A9060', fontSize: 9 },
-
-  // Bottom panel row
-  bottomPanelRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 4, paddingVertical: 4, gap: 4,
-  },
+  handMelds: { paddingHorizontal: 8, paddingBottom: 3 },
+  doraRow: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 12, paddingTop: 3 },
+  doraLabel: { color: '#5A8050', fontSize: 9, fontWeight: '700' },
 
   // Call banner
-  callBanner: {
+  callBanner: { borderTopWidth: 2, borderBottomWidth: 2, borderColor: '#C8A028' },
+  callBannerInner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(4,14,6,0.97)',
-    borderTopWidth: 2, borderBottomWidth: 2, borderColor: '#C9A030',
-    paddingHorizontal: 12, paddingVertical: 8, gap: 10,
+    paddingHorizontal: 10, paddingVertical: 8, gap: 8,
   },
-  callTileWrap: { alignItems: 'center', gap: 3 },
-  callFrom: { color: '#C9A030', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  callBtns: { flexDirection: 'row', gap: 8, paddingHorizontal: 4, alignItems: 'center' },
+  callLeft: { alignItems: 'center', gap: 2 },
+  callFromLabel: { color: '#C8A028', fontSize: 9, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' } as any,
+  callFromSub: { color: '#5A5040', fontSize: 8 },
+  callBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
 
   // Action bar
-  actionBar: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(4,8,4,0.95)',
-    borderTopWidth: 1, borderTopColor: '#2A4A1A',
-    paddingHorizontal: 8, paddingTop: 8, gap: 6,
+  actionBar: { paddingHorizontal: 6, paddingTop: 0 },
+  actionGoldRule: { height: 1.5, backgroundColor: '#3A2A04', marginBottom: 6 },
+  actionBarRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  actionSidePanel: {
+    width: 62, borderRadius: 10, padding: 6,
+    alignItems: 'center', gap: 1,
+    borderWidth: 1, borderColor: '#3A2A04',
   },
-  actionLeft: {
-    width: 56, borderRadius: 10, padding: 8,
-    alignItems: 'center', gap: 2,
-    borderWidth: 1, borderColor: '#3A2A00',
+  actionSidePanelTop: { color: '#5A4A18', fontSize: 7, fontWeight: '800', letterSpacing: 1, textAlign: 'center' } as any,
+  actionSidePanelMain: { color: '#C8A028', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  actionSideCoin: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 1 },
+  actionSideCoinIcon: { fontSize: 9 },
+  actionSideCoinAmt: { color: '#8A7030', fontSize: 8, fontWeight: '700' },
+  actionWallCount: { color: '#F0E0A0', fontSize: 20, fontWeight: '900', lineHeight: 22 },
+  miniTileStack: { width: 20, height: 18, position: 'relative', marginTop: 2 },
+  miniTile: {
+    position: 'absolute', width: 14, height: 10, borderRadius: 2,
+    backgroundColor: '#4E8058', borderTopWidth: 2, borderTopColor: '#D8EDD0',
+    borderWidth: 0.5, borderColor: '#2A4A30',
   },
-  actionLeftLabel: { color: '#7A6030', fontSize: 7, fontWeight: '800', letterSpacing: 1 },
-  actionLeftMode: { fontSize: 14 },
-  actionLeftSub: { color: '#C9A030', fontSize: 11, fontWeight: '800' },
   actionCenter: {
-    flex: 1, flexDirection: 'row', gap: 6,
-    alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap',
+    flex: 1, flexDirection: 'row', flexWrap: 'wrap',
+    alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2,
   },
-  actionRight: {
-    width: 56, borderRadius: 10, padding: 8,
-    alignItems: 'center', gap: 2,
-    borderWidth: 1, borderColor: '#3A2A00',
-  },
-  actionRightLabel: { color: '#7A6030', fontSize: 7, fontWeight: '800', letterSpacing: 1 },
-  actionRightCount: { color: '#F5E8C0', fontSize: 20, fontWeight: '900', lineHeight: 22 },
-  waitText: { color: '#6A8A60', fontSize: 12, fontStyle: 'italic' },
+  hintText: { color: '#4A6A3A', fontSize: 11, fontStyle: 'italic', textAlign: 'center' },
+  waitWrap: { alignItems: 'center', gap: 2 },
+  waitDots: { color: '#C8A028', fontSize: 12, letterSpacing: 4 },
+  waitText: { color: '#5A6A4A', fontSize: 10, fontStyle: 'italic' },
 
-  // Glossy button
+  // Glossy btn
   glossyBtn: {
     borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#2A4A2A',
-    minWidth: 60,
+    borderWidth: 1, minWidth: 58, position: 'relative',
+    paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center', gap: 1,
   },
-  glossyBtnWide: { minWidth: 80 },
-  glossyBtnInner: { paddingVertical: 9, paddingHorizontal: 12, alignItems: 'center', gap: 2 },
-  glossyIcon: { color: '#C9A030', fontSize: 15, lineHeight: 18 },
-  glossyLabel: { color: '#C9A030', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
-  glossyCount: {
-    position: 'absolute', top: 4, right: 4,
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#C9A030', alignItems: 'center', justifyContent: 'center',
+  glossyBtnWide: { minWidth: 76 },
+  glossySheen: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 10,
+    backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12,
   },
-  glossyCountText: { color: '#060F07', fontSize: 9, fontWeight: '900' },
+  glossyIcon: { color: '#C8A028', fontSize: 16, lineHeight: 19 },
+  glossyLabel: { color: '#C8A028', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  glossyBadge: {
+    position: 'absolute', top: 3, right: 3,
+    width: 15, height: 15, borderRadius: 7.5,
+    backgroundColor: '#C8A028', alignItems: 'center', justifyContent: 'center',
+  },
+  glossyBadgeText: { color: '#070E07', fontSize: 8, fontWeight: '900' },
 
-  // Popup
+  // Discard popup
   popupOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center', zIndex: 999,
   } as any,
-  popupCard: { shadowColor: '#C9A030', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 20 } as any,
-  popupInner: {
-    width: 120, paddingVertical: 20, paddingHorizontal: 16,
+  popupCard: {
+    width: 130, paddingVertical: 22, paddingHorizontal: 18,
     borderRadius: 18, alignItems: 'center', gap: 10,
-    borderWidth: 2.5, borderColor: '#C9A030',
-  },
-  popupName: { color: '#C9A030', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
-  popupWord: { color: '#7A6030', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase' } as any,
+    borderWidth: 2.5, borderColor: '#C8A028',
+    boxShadow: '0 0 30px rgba(200,160,40,0.55)',
+  } as any,
+  popupGoldBorder: {
+    position: 'absolute', top: 6, left: 6, right: 6, bottom: 6,
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(200,160,40,0.2)',
+    pointerEvents: 'none',
+  } as any,
+  popupName: { color: '#D4A840', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  popupWord: { color: '#5A4A18', fontSize: 9, letterSpacing: 2.5, fontWeight: '700', textTransform: 'uppercase' } as any,
 });
