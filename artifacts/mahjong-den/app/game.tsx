@@ -40,6 +40,7 @@ export default function GameScreen() {
   const tilesLeft      = useGameStore(s => s.tilesLeft);
   const roundWind      = useGameStore(s => s.roundWind);
   const dealer         = useGameStore(s => s.dealer);
+  const gameMode       = useGameStore(s => s.gameMode);
 
   const {
     humanDiscard, humanRiichi, humanTsumo,
@@ -94,7 +95,7 @@ export default function GameScreen() {
 
   const fullHand = human.drawnTile ? [...human.hand, human.drawnTile] : human.hand;
   const canTsumo = phase === 'player_turn' && currentPlayer === 0 && isWinningHand(fullHand, human.melds);
-  const canRiichi = phase === 'player_turn' && currentPlayer === 0 &&
+  const canRiichi = gameMode === 'riichi' && phase === 'player_turn' && currentPlayer === 0 &&
     !human.isRiichi && human.melds.every(m => m.type === 'ankan') &&
     isTenpai(human.hand, human.melds);
 

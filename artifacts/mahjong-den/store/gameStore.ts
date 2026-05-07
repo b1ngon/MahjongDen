@@ -8,6 +8,9 @@ import {
   WinContext, Yaku, ScoreResult,
 } from '../engine/mahjongLogic';
 import { aiChooseDiscard, aiDecideCall } from '../engine/ai';
+import { GameMode } from '../constants/gameModes';
+import { resolveWinHK } from '../engine/hkLogic';
+import { resolveWinMCR } from '../engine/mcrLogic';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +52,7 @@ export interface RoundResult {
 }
 
 export interface GameState {
+  gameMode: GameMode;
   phase: GamePhase;
   players: PlayerState[];
   wall: Tile[];
@@ -63,6 +67,7 @@ export interface GameState {
 }
 
 interface GameActions {
+  setGameMode: (mode: GameMode) => void;
   startGame: () => void;
   humanDiscard: (tileId: number) => void;
   humanRiichi: (tileId: number) => void;
@@ -96,31 +101,39 @@ function makePlayer(index: number): PlayerState {
   };
 }
 
-function sortHand(h: Tile[]): Tile[] {
-  return [...h].sort(compareTiles);
+function sortHand(h: Tile[]): Tile[] { return [...h].sort(compareTiles); }
+
+// ─── Mode-aware win resolution ────────────────────────────────────────────────
+
+function resolveWin(
+  hand: Tile[], melds: Meld[], winTile: Tile,
+  ctx: WinContext, isDealer: boolean, gameMode: GameMode,
+): { yaku: Yaku[]; score: ScoreResult } | null {
+  if (gameMode === 'hk')  return resolveWinHK(hand, melds, winTile, ctx, isDealer);
+  if (gameMode === 'mcr') return resolveWinMCR(hand, melds, winTile, ctx, isDealer);
+  // Japanese Riichi — requires at least one yaku
+  const yaku = identifyYaku(hand, melds, ctx, winTile);
+  if (yaku.length === 0) return null;
+  const fu  = calculateFu(hand, melds, winTile, ctx);
+  const han = yaku.reduce((s, y) => s + y.han, 0);
+  const score = calculateScore(han, fu, isDealer, ctx.isTsumo);
+  return { yaku, score };
 }
+
+// ─── Call-option builder ──────────────────────────────────────────────────────
 
 function buildCallOptions(
   hand: Tile[], melds: Meld[], discard: Tile, canChi: boolean,
 ): CallOptions {
   return {
-    canRon: isWinningHand([...hand, discard], melds),
-    canPon: canPon(hand, discard),
-    canKan: canKan(hand, discard),
+    canRon:    isWinningHand([...hand, discard], melds),
+    canPon:    canPon(hand, discard),
+    canKan:    canKan(hand, discard),
     chiOptions: canChi ? getChiOptions(hand, discard) : [],
   };
 }
 
-function resolveWin(
-  hand: Tile[], melds: Meld[], winTile: Tile, ctx: WinContext, isDealer: boolean,
-): { yaku: Yaku[]; score: ScoreResult } | null {
-  const yaku = identifyYaku(hand, melds, ctx, winTile);
-  if (yaku.length === 0) return null;
-  const fu = calculateFu(hand, melds, winTile, ctx);
-  const han = yaku.reduce((s, y) => s + y.han, 0);
-  const score = calculateScore(han, fu, isDealer, ctx.isTsumo);
-  return { yaku, score };
-}
+// ─── Score transfer ───────────────────────────────────────────────────────────
 
 function applyScoreTransfer(
   players: PlayerState[],
@@ -134,12 +147,9 @@ function applyScoreTransfer(
     if (i === winnerIndex) return { ...p, score: p.score + score.totalPoints };
     if (isTsumo) {
       const winnerIsDealer = winnerIndex === dealerIndex;
-      if (winnerIsDealer) {
-        return { ...p, score: p.score - (score.dealerPayment ?? 0) };
-      } else {
-        const payment = i === dealerIndex ? (score.dealerPayment ?? 0) : (score.nonDealerPayment ?? 0);
-        return { ...p, score: p.score - payment };
-      }
+      if (winnerIsDealer) return { ...p, score: p.score - (score.dealerPayment ?? 0) };
+      const payment = i === dealerIndex ? (score.dealerPayment ?? 0) : (score.nonDealerPayment ?? 0);
+      return { ...p, score: p.score - payment };
     } else {
       if (i === loserIndex) return { ...p, score: p.score - score.totalPoints };
       return p;
@@ -150,6 +160,7 @@ function applyScoreTransfer(
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useGameStore = create<GameState & GameActions>()((set, get) => ({
+  gameMode: 'hk',
   phase: 'not_started',
   players: [0, 1, 2, 3].map(makePlayer),
   wall: [],
@@ -162,8 +173,14 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
   pendingDiscard: null,
   result: null,
 
-  // ─────────────────────────────────────────────────────────────────── startGame
+  // ──────────────────────────────────────────────────────────── setGameMode
+  setGameMode(mode: GameMode) {
+    set({ gameMode: mode });
+  },
+
+  // ──────────────────────────────────────────────────────────── startGame
   startGame() {
+    const { gameMode } = get();
     const tileset = shuffle(createTileset());
     const hands: Tile[][] = [[], [], [], []];
     let wi = 0;
@@ -181,6 +198,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     }));
 
     set({
+      gameMode,
       phase: 'player_turn',
       players, wall, dora: [dora], tilesLeft: wall.length,
       currentPlayer: 0, dealer: 0, roundWind: 1,
@@ -188,7 +206,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanTsumo
+  // ──────────────────────────────────────────────────────────── humanTsumo
   humanTsumo() {
     const s = get();
     const human = s.players[0];
@@ -196,12 +214,12 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     if (!isWinningHand(fullHand, human.melds)) return;
     const winTile = human.drawnTile!;
     const ctx: WinContext = { isRiichi: human.isRiichi, isTsumo: true, seatWind: human.seatWind, roundWind: s.roundWind };
-    const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer);
+    const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer, s.gameMode);
     if (!res) return;
     set({ players: applyScoreTransfer(s.players, 0, res.score, true), phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: true } });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanDiscard
+  // ──────────────────────────────────────────────────────────── humanDiscard
   humanDiscard(tileId: number) {
     const s = get();
     const human = s.players[0];
@@ -214,27 +232,26 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       i === 0 ? { ...p, hand: newHand, drawnTile: null, discards: [...p.discards, discarded] } : p,
     );
 
-    // Check all AIs for Ron first
     for (let ai = 1; ai <= 3; ai++) {
       const aip = players[ai];
       const fullHand = [...aip.hand, discarded];
       const ctx: WinContext = { isRiichi: aip.isRiichi, isTsumo: false, seatWind: aip.seatWind, roundWind: s.roundWind };
-      const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer);
+      const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer, s.gameMode);
       if (res) {
         set({ players: applyScoreTransfer(players, ai, res.score, false, 0), phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
         return;
       }
     }
 
-    // Advance to AI 1 with pendingDiscard
     set({ players, phase: 'ai_turn', currentPlayer: 1, pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanRiichi
+  // ──────────────────────────────────────────────────────────── humanRiichi
   humanRiichi(tileId: number) {
     const s = get();
+    if (s.gameMode !== 'riichi') return;
     const human = s.players[0];
-    if (human.melds.some(m => m.type !== 'ankan')) return; // open hand
+    if (human.melds.some(m => m.type !== 'ankan')) return;
     const allTiles = human.drawnTile ? [...human.hand, human.drawnTile] : human.hand;
     const discarded = allTiles.find(t => t.id === tileId);
     if (!discarded) return;
@@ -245,12 +262,11 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       i === 0 ? { ...p, hand: newHand, drawnTile: null, discards: [...p.discards, discarded], isRiichi: true, score: p.score - 1000 } : p,
     );
 
-    // Check AIs for Ron
     for (let ai = 1; ai <= 3; ai++) {
       const aip = players[ai];
       const fullHand = [...aip.hand, discarded];
       const ctx: WinContext = { isRiichi: aip.isRiichi, isTsumo: false, seatWind: aip.seatWind, roundWind: s.roundWind };
-      const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer);
+      const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer, s.gameMode);
       if (res) {
         set({ players: applyScoreTransfer(players, ai, res.score, false, 0), phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
         return;
@@ -260,7 +276,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     set({ players, phase: 'ai_turn', currentPlayer: 1, pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanRon
+  // ──────────────────────────────────────────────────────────── humanRon
   humanRon() {
     const s = get();
     if (!s.pendingDiscard) return;
@@ -268,13 +284,13 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     const winTile = s.pendingDiscard.tile;
     const fullHand = [...human.hand, winTile];
     const ctx: WinContext = { isRiichi: human.isRiichi, isTsumo: false, seatWind: human.seatWind, roundWind: s.roundWind };
-    const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer);
+    const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer, s.gameMode);
     if (!res) return;
     const loserIdx = s.pendingDiscard.playerIndex;
     set({ players: applyScoreTransfer(s.players, 0, res.score, false, loserIdx), phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: false, loserIndex: loserIdx } });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanPon
+  // ──────────────────────────────────────────────────────────── humanPon
   humanPon() {
     const s = get();
     if (!s.pendingDiscard) return;
@@ -289,7 +305,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     set({ players, phase: 'player_turn', currentPlayer: 0, pendingDiscard: null, callOptions: EMPTY_CALL });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanKan
+  // ──────────────────────────────────────────────────────────── humanKan
   humanKan() {
     const s = get();
     if (!s.pendingDiscard) return;
@@ -307,7 +323,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     set({ players, wall: rest, tilesLeft: rest.length, phase: 'player_turn', currentPlayer: 0, pendingDiscard: null, callOptions: EMPTY_CALL, dora: [...s.dora, newDora] });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanChi
+  // ──────────────────────────────────────────────────────────── humanChi
   humanChi([id1, id2]: [number, number]) {
     const s = get();
     if (!s.pendingDiscard) return;
@@ -323,43 +339,41 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     set({ players, phase: 'player_turn', currentPlayer: 0, pendingDiscard: null, callOptions: EMPTY_CALL });
   },
 
-  // ─────────────────────────────────────────────────────────────────── humanPass
+  // ──────────────────────────────────────────────────────────── humanPass
   humanPass() {
     const s = get();
     const nextPlayer = s.currentPlayer;
-
     if (nextPlayer === 0) {
-      // Human is the next to draw (AI before them discarded and they passed)
       if (s.wall.length === 0) { set({ phase: 'game_over', result: null }); return; }
       const [drawn, ...rest] = s.wall;
       const players = s.players.map((p, i) => i === 0 ? { ...p, drawnTile: drawn } : p);
       set({ phase: 'player_turn', players, wall: rest, tilesLeft: rest.length, currentPlayer: 0, pendingDiscard: null, callOptions: EMPTY_CALL });
     } else {
-      // Hand off to next AI player (who may also want to call pendingDiscard)
       set({ phase: 'ai_turn', callOptions: EMPTY_CALL });
     }
   },
 
-  // ─────────────────────────────────────────────────────────────────── aiProcessTurn
+  // ──────────────────────────────────────────────────────────── aiProcessTurn
   aiProcessTurn(playerIndex: number) {
     const s = get();
     if (s.phase === 'game_over' || s.currentPlayer !== playerIndex) return;
+    const { gameMode } = s;
 
     const player = s.players[playerIndex];
     let workWall = [...s.wall];
     let workPlayers = [...s.players];
 
-    // ── Handle pending discard ────────────────────────────────────────────────
+    // ── Handle pending discard ─────────────────────────────────────────────
     if (s.pendingDiscard && s.pendingDiscard.playerIndex !== playerIndex) {
       const pd = s.pendingDiscard;
-      // Chi is only for the player immediately AFTER the discarder in turn order
-      const canChi = pd.playerIndex === (playerIndex + 3) % 4;
+      // HK/MCR: any player can Chow; Riichi: only the immediate next player
+      const canChi = gameMode !== 'riichi' || pd.playerIndex === (playerIndex + 3) % 4;
       const decision = aiDecideCall(player.hand, player.melds, pd.tile, canChi, player.seatWind, s.roundWind);
 
       if (decision.action === 'ron') {
         const fullHand = [...player.hand, pd.tile];
         const ctx: WinContext = { isRiichi: player.isRiichi, isTsumo: false, seatWind: player.seatWind, roundWind: s.roundWind };
-        const res = resolveWin(fullHand, player.melds, pd.tile, ctx, player.isDealer);
+        const res = resolveWin(fullHand, player.melds, pd.tile, ctx, player.isDealer, gameMode);
         if (res) {
           set({ players: applyScoreTransfer(workPlayers, playerIndex, res.score, false, pd.playerIndex), phase: 'game_over', result: { winnerIndex: playerIndex, winTile: pd.tile, ...res, isTsumo: false, loserIndex: pd.playerIndex } });
           return;
@@ -373,11 +387,10 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
         const ponHand = player.hand.filter(t => !matchIds.has(t.id));
         const discardTile = aiChooseDiscard(ponHand, [...player.melds, meld]);
         const finalHand = sortHand(ponHand.filter(t => t.id !== discardTile.id));
-
         workPlayers = workPlayers.map((p, i) =>
           i === playerIndex ? { ...p, hand: finalHand, melds: [...p.melds, meld], drawnTile: null, discards: [...p.discards, discardTile] } : p,
         );
-        return set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind));
+        return set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind, gameMode));
       }
 
       if (decision.action === 'chi' && canChi && decision.chiTiles) {
@@ -387,29 +400,23 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
         const chiHand = player.hand.filter(t => !chiIds.has(t.id));
         const discardTile = aiChooseDiscard(chiHand, [...player.melds, meld]);
         const finalHand = sortHand(chiHand.filter(t => t.id !== discardTile.id));
-
         workPlayers = workPlayers.map((p, i) =>
           i === playerIndex ? { ...p, hand: finalHand, melds: [...p.melds, meld], drawnTile: null, discards: [...p.discards, discardTile] } : p,
         );
-        return set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind));
+        return set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind, gameMode));
       }
-
-      // Pass on pendingDiscard → fall through to draw + act (clearing pendingDiscard)
     }
 
-    // ── Draw ─────────────────────────────────────────────────────────────────
-    if (workWall.length === 0) {
-      set({ phase: 'game_over', result: null });
-      return;
-    }
+    // ── Draw ──────────────────────────────────────────────────────────────
+    if (workWall.length === 0) { set({ phase: 'game_over', result: null }); return; }
     const [drawn, ...rest] = workWall;
     workWall = rest;
     const fullHand = [...player.hand, drawn];
 
-    // ── Check tsumo ──────────────────────────────────────────────────────────
+    // ── Check tsumo ───────────────────────────────────────────────────────
     if (isWinningHand(fullHand, player.melds)) {
       const ctx: WinContext = { isRiichi: player.isRiichi, isTsumo: true, seatWind: player.seatWind, roundWind: s.roundWind };
-      const res = resolveWin(fullHand, player.melds, drawn, ctx, player.isDealer);
+      const res = resolveWin(fullHand, player.melds, drawn, ctx, player.isDealer, gameMode);
       if (res) {
         workPlayers = workPlayers.map((p, i) => i === playerIndex ? { ...p, drawnTile: drawn } : p);
         set({ players: applyScoreTransfer(workPlayers, playerIndex, res.score, true), wall: workWall, tilesLeft: workWall.length, phase: 'game_over', result: { winnerIndex: playerIndex, winTile: drawn, ...res, isTsumo: true } });
@@ -417,14 +424,14 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       }
     }
 
-    // ── Discard ──────────────────────────────────────────────────────────────
+    // ── Discard ───────────────────────────────────────────────────────────
     const discardTile = aiChooseDiscard(fullHand, player.melds);
     const newHand = sortHand(fullHand.filter(t => t.id !== discardTile.id));
     workPlayers = workPlayers.map((p, i) =>
       i === playerIndex ? { ...p, hand: newHand, drawnTile: null, discards: [...p.discards, discardTile] } : p,
     );
 
-    set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind));
+    set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind, gameMode));
   },
 }));
 
@@ -436,27 +443,29 @@ function aiDiscardResult(
   discardTile: Tile,
   discarderIdx: number,
   roundWind: number,
+  gameMode: GameMode,
 ): Partial<GameState> {
   // Check other AIs for Ron
   for (let q = 1; q <= 3; q++) {
     const otherIdx = (discarderIdx + q) % 4;
-    if (otherIdx === 0) continue; // human handled via call_window
+    if (otherIdx === 0) continue;
     const other = players[otherIdx];
     const fullHand = [...other.hand, discardTile];
     const ctx: WinContext = { isRiichi: other.isRiichi, isTsumo: false, seatWind: other.seatWind, roundWind };
-    const res = resolveWin(fullHand, other.melds, discardTile, ctx, other.isDealer);
+    const res = resolveWin(fullHand, other.melds, discardTile, ctx, other.isDealer, gameMode);
     if (res) {
       return { players: applyScoreTransfer(players, otherIdx, res.score, false, discarderIdx), wall, tilesLeft: wall.length, phase: 'game_over', result: { winnerIndex: otherIdx, winTile: discardTile, ...res, isTsumo: false, loserIndex: discarderIdx } };
     }
   }
 
-  // Check human call options
+  // Human call options
   const human = players[0];
-  const humanCanChi = discarderIdx === 3; // AI N (3) is immediately before human (0) in turn order
+  // HK/MCR: Chow from any player; Riichi: only from immediate left (player 3)
+  const humanCanChi = gameMode !== 'riichi' || discarderIdx === 3;
   const callOpts: CallOptions = {
-    canRon: isWinningHand([...human.hand, discardTile], human.melds),
-    canPon: canPon(human.hand, discardTile),
-    canKan: canKan(human.hand, discardTile),
+    canRon:    isWinningHand([...human.hand, discardTile], human.melds),
+    canPon:    canPon(human.hand, discardTile),
+    canKan:    canKan(human.hand, discardTile),
     chiOptions: humanCanChi ? getChiOptions(human.hand, discardTile) : [],
   };
   const hasHumanCall = callOpts.canRon || callOpts.canPon || callOpts.canKan || callOpts.chiOptions.length > 0;
@@ -474,7 +483,6 @@ function aiDiscardResult(
   }
 
   if (nextPlayer === 0) {
-    // Draw for human immediately
     if (wall.length === 0) return { phase: 'game_over', result: null };
     const [humanDrawn, ...humanRest] = wall;
     return {

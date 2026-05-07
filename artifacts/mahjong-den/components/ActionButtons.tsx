@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Tile } from '../engine/tiles';
 import colors from '../constants/colors';
+import { MODE_TERMS } from '../constants/gameModes';
+import { useGameStore } from '../store/gameStore';
 import * as Haptics from 'expo-haptics';
 
 interface ActionButtonsProps {
@@ -28,27 +30,16 @@ interface ActionButtonsProps {
 }
 
 function ActionButton({
-  label,
-  sublabel,
-  onPress,
-  color = colors.surfaceElevated,
-  textColor = colors.text,
-  disabled = false,
+  label, sublabel, onPress,
+  color = colors.surfaceElevated, textColor = colors.text, disabled = false,
 }: {
-  label: string;
-  sublabel?: string;
-  onPress: () => void;
-  color?: string;
-  textColor?: string;
-  disabled?: boolean;
+  label: string; sublabel?: string; onPress: () => void;
+  color?: string; textColor?: string; disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
       style={[styles.btn, { backgroundColor: color }, disabled && styles.btnDisabled]}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
+      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
       disabled={disabled}
       activeOpacity={0.7}
     >
@@ -59,20 +50,21 @@ function ActionButton({
 }
 
 export default function ActionButtons({
-  phase,
-  selectedTileId,
+  phase, selectedTileId,
   canRon, canPon, canKan, chiOptions,
   drawnTile, hand, isRiichi, handWithDraw,
   onDiscard, onRiichi, onTsumo, onRon, onPon, onKan, onChi, onPass,
   canTsumo, canRiichi,
 }: ActionButtonsProps) {
   const [showChiPicker, setShowChiPicker] = useState(false);
+  const gameMode = useGameStore(s => s.gameMode);
+  const terms    = MODE_TERMS[gameMode];
 
-  // ── Chi picker (shown when there are multiple chi options) ─────────────────
+  // ── Chi / Chow picker ───────────────────────────────────────────────────────
   if (showChiPicker && phase === 'call_window') {
     return (
       <View style={styles.column}>
-        <Text style={styles.pickerLabel}>Choose a sequence for Chi:</Text>
+        <Text style={styles.pickerLabel}>Choose a sequence for {terms.chow}:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.row}>
             {chiOptions.map((opt, i) => {
@@ -81,13 +73,10 @@ export default function ActionButtons({
                 <ActionButton
                   key={i}
                   label={`${nums[0]}-${nums[1]}`}
-                  sublabel="Chi"
+                  sublabel={terms.chow}
                   color={colors.green}
                   textColor="#fff"
-                  onPress={() => {
-                    setShowChiPicker(false);
-                    onChi([opt[0].id, opt[1].id]);
-                  }}
+                  onPress={() => { setShowChiPicker(false); onChi([opt[0].id, opt[1].id]); }}
                 />
               );
             })}
@@ -108,17 +97,17 @@ export default function ActionButtons({
     return (
       <View style={styles.row}>
         {canRon && (
-          <ActionButton label="RON" sublabel="Win!" color={colors.red} textColor="#fff" onPress={onRon} />
+          <ActionButton label={terms.win} sublabel="Win!" color={colors.red} textColor="#fff" onPress={onRon} />
         )}
         {canPon && (
-          <ActionButton label="PON" sublabel="Triplet" color={colors.purple} textColor="#fff" onPress={onPon} />
+          <ActionButton label={terms.pong} sublabel="Triplet" color={colors.purple} textColor="#fff" onPress={onPon} />
         )}
         {canKan && (
-          <ActionButton label="KAN" sublabel="Quad" color={colors.blue} textColor="#fff" onPress={onKan} />
+          <ActionButton label={terms.gong} sublabel="Quad" color={colors.blue} textColor="#fff" onPress={onKan} />
         )}
         {chiOptions.length > 0 && (
           <ActionButton
-            label="CHI"
+            label={terms.chow}
             sublabel="Sequence"
             color={colors.green}
             textColor="#fff"
@@ -131,7 +120,7 @@ export default function ActionButtons({
             }}
           />
         )}
-        <ActionButton label="PASS" color={colors.surface} textColor={colors.textMuted} onPress={onPass} />
+        <ActionButton label={terms.pass} color={colors.surface} textColor={colors.textMuted} onPress={onPass} />
       </View>
     );
   }
@@ -141,11 +130,17 @@ export default function ActionButtons({
     return (
       <View style={styles.row}>
         {canTsumo && (
-          <ActionButton label="TSUMO" sublabel="Win!" color={colors.primary} textColor={colors.primaryForeground} onPress={onTsumo} />
-        )}
-        {canRiichi && selectedTileId !== null && (
           <ActionButton
-            label="RIICHI"
+            label={terms.draw}
+            sublabel="Win!"
+            color={colors.primary}
+            textColor={colors.primaryForeground}
+            onPress={onTsumo}
+          />
+        )}
+        {canRiichi && terms.riichi !== null && selectedTileId !== null && (
+          <ActionButton
+            label={terms.riichi}
             color={colors.primaryDark}
             textColor={colors.winGold}
             onPress={() => onRiichi(selectedTileId)}
@@ -180,52 +175,23 @@ export default function ActionButtons({
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    flexDirection: 'row', justifyContent: 'center',
+    alignItems: 'center', gap: 10,
+    paddingVertical: 8, paddingHorizontal: 12,
   },
-  column: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    gap: 4,
-  },
+  column: { paddingVertical: 6, paddingHorizontal: 12, gap: 4 },
   pickerLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    textAlign: 'center',
-    marginBottom: 2,
+    color: colors.textSecondary, fontSize: 11,
+    textAlign: 'center', marginBottom: 2,
   },
   btn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    minWidth: 70,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10, paddingHorizontal: 16,
+    borderRadius: 10, alignItems: 'center', minWidth: 70,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
-  btnDisabled: {
-    opacity: 0.4,
-  },
-  btnLabel: {
-    fontWeight: '800',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  btnSublabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 9,
-    marginTop: 2,
-  },
-  hint: {
-    paddingVertical: 12,
-  },
-  hintText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontStyle: 'italic',
-  },
+  btnDisabled: { opacity: 0.4 },
+  btnLabel: { fontWeight: '800', fontSize: 13, letterSpacing: 0.5 },
+  btnSublabel: { color: 'rgba(255,255,255,0.6)', fontSize: 9, marginTop: 2 },
+  hint: { paddingVertical: 12 },
+  hintText: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic' },
 });

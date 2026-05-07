@@ -28,6 +28,7 @@ export default function ResultsScreen() {
   const players   = useGameStore(s => s.players);
   const result    = useGameStore(s => s.result);
   const startGame = useGameStore(s => s.startGame);
+  const gameMode  = useGameStore(s => s.gameMode);
   const { addMatch } = useHistory();
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -130,7 +131,9 @@ export default function ResultsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.winnerName}>{winner.name}</Text>
                 <Text style={styles.winnerSeat}>
-                  {WIND_CHARS[winner.seatWind - 1]} · {result.isTsumo ? 'Tsumo' : `Ron vs ${loser?.name ?? '?'}`}
+                  {WIND_CHARS[winner.seatWind - 1]} · {result.isTsumo
+                    ? (gameMode === 'riichi' ? 'Tsumo' : 'Zi Mo')
+                    : `${gameMode === 'riichi' ? 'Ron' : 'Hu'} vs ${loser?.name ?? '?'}`}
                 </Text>
               </View>
               <View style={styles.scoreBox}>
@@ -151,10 +154,16 @@ export default function ResultsScreen() {
             </Animated.View>
           )}
 
-          {/* Yaku list */}
+          {/* Yaku / Faan / Pattern list */}
           {result && result.yaku.length > 0 && (
             <Animated.View style={[styles.yakuList, { opacity: fadeAnim }]}>
-              <Text style={styles.sectionTitle}>Yaku · {result.score.han} Han {result.score.fu} Fu</Text>
+              <Text style={styles.sectionTitle}>
+                {gameMode === 'hk'
+                  ? `Patterns · ${result.score.han} Faan`
+                  : gameMode === 'mcr'
+                  ? `Patterns · ${result.score.han} pts`
+                  : `Yaku · ${result.score.han} Han ${result.score.fu} Fu`}
+              </Text>
               {result.yaku.map((y, i) => (
                 <View key={i} style={styles.yakuRow}>
                   <Text style={styles.yakuName}>{y.name}</Text>
@@ -163,14 +172,14 @@ export default function ResultsScreen() {
                       <View key={j} style={styles.hanPill} />
                     ))}
                   </View>
-                  <Text style={styles.yakuHan}>{y.han} han</Text>
+                  <Text style={styles.yakuHan}>
+                    {y.han} {gameMode === 'hk' ? 'faan' : gameMode === 'mcr' ? 'pts' : 'han'}
+                  </Text>
                 </View>
               ))}
               <View style={styles.divider} />
               <View style={styles.yakuRow}>
-                <Text style={[styles.yakuName, { fontWeight: '800', color: colors.primary }]}>
-                  Total
-                </Text>
+                <Text style={[styles.yakuName, { fontWeight: '800', color: colors.primary }]}>Total</Text>
                 <Text style={[styles.yakuHan, { color: colors.primary, fontWeight: '800' }]}>
                   {result.score.label}
                 </Text>
