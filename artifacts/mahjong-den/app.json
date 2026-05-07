@@ -3,7 +3,7 @@
     "name": "Mahjong Den",
     "slug": "mahjong-den",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "mahjong-den",
     "userInterfaceStyle": "dark",
@@ -31,7 +31,8 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-screen-orientation"
     ],
     "experiments": {
       "typedRoutes": true,

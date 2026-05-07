@@ -1,17 +1,22 @@
-import { useWindowDimensions } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, useWindowDimensions } from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useSettings } from '@/context/SettingsContext';
 
-/**
- * Returns the current orientation preference and viewport dimensions.
- * Layout switching is purely visual — no device rotation locking.
- * On a real device, the user rotates their phone to match the selected mode.
- */
 export function useOrientationLayout() {
   const { settings } = useSettings();
   const { width, height } = useWindowDimensions();
 
   const isLandscape = settings.orientationMode === 'landscape';
   const isViewportLandscape = width > height;
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const lock = isLandscape
+      ? ScreenOrientation.OrientationLock.LANDSCAPE
+      : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+    ScreenOrientation.lockAsync(lock).catch(() => {});
+  }, [isLandscape]);
 
   return {
     isLandscape,
