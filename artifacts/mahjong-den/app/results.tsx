@@ -13,6 +13,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useHistory } from '@/context/HistoryContext';
 import MahjongTile from '@/components/MahjongTile';
 import { WIND_CHARS } from '@/engine/tiles';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const CHAR_IMAGES: Record<string, ImageSourcePropType> = {
   luna:   require('../assets/images/char_luna.png'),
@@ -81,6 +82,7 @@ export default function ResultsScreen() {
 
   return (
     <View style={styles.overlay}>
+      <AnimatedBackground />
       <LinearGradient
         colors={bgColors}
         style={[styles.modal, { paddingTop: topPad + 16, paddingBottom: botPad + 16 }]}

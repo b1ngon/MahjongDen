@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import colors from '@/constants/colors';
 import { useSettings } from '@/context/SettingsContext';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 function Row({ label, sub, right }: { label: string; sub?: string; right: React.ReactNode }) {
   return (
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
 
   return (
     <LinearGradient colors={['#04071A', '#080C1A']} style={styles.root}>
+      <AnimatedBackground />
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Text style={styles.closeBtnText}>✕</Text>

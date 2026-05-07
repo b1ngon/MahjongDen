@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import colors from '@/constants/colors';
 import { useHistory, MatchRecord } from '@/context/HistoryContext';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 function MatchRow({ record }: { record: MatchRecord }) {
   const date = new Date(record.date);
@@ -55,6 +56,7 @@ export default function HistoryScreen() {
 
   return (
     <LinearGradient colors={['#04071A', '#080C1A']} style={styles.root}>
+      <AnimatedBackground />
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Text style={styles.closeBtnText}>✕</Text>

@@ -1,25 +1,19 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   Animated, Dimensions, Platform,
 } from 'react-native';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import colors from '@/constants/colors';
 import { useGameStore } from '@/store/gameStore';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const LUNA_IMAGE = require('../assets/images/char_luna.png');
-
-// Pre-compute star positions using pixel values (avoids `as any` string-percentage cast)
-const STARS = Array.from({ length: 30 }, () => ({
-  top:     Math.random() * height * 0.68,
-  left:    Math.random() * width,
-  size:    Math.random() * 3 + 1,
-  opacity: Math.random() * 0.6 + 0.2,
-}));
 
 export default function LobbyScreen() {
   const insets    = useSafeAreaInsets();
@@ -57,24 +51,7 @@ export default function LobbyScreen() {
 
   return (
     <LinearGradient colors={['#04071A', '#0A1040', '#080C1A']} style={styles.root}>
-      {/* Stars — pixel positions, no `as any` */}
-      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
-        {STARS.map((star, i) => (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              top: star.top,
-              left: star.left,
-              width: star.size,
-              height: star.size,
-              borderRadius: star.size / 2,
-              backgroundColor: '#fff',
-              opacity: star.opacity,
-            }}
-          />
-        ))}
-      </View>
+      <AnimatedBackground />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>

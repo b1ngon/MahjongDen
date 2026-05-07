@@ -122,6 +122,31 @@ function resolveWin(
   return { yaku, score };
 }
 
+function applyScoreTransfer(
+  players: PlayerState[],
+  winnerIndex: number,
+  score: ScoreResult,
+  isTsumo: boolean,
+  loserIndex?: number,
+): PlayerState[] {
+  const dealerIndex = players.findIndex(p => p.isDealer);
+  return players.map((p, i) => {
+    if (i === winnerIndex) return { ...p, score: p.score + score.totalPoints };
+    if (isTsumo) {
+      const winnerIsDealer = winnerIndex === dealerIndex;
+      if (winnerIsDealer) {
+        return { ...p, score: p.score - (score.dealerPayment ?? 0) };
+      } else {
+        const payment = i === dealerIndex ? (score.dealerPayment ?? 0) : (score.nonDealerPayment ?? 0);
+        return { ...p, score: p.score - payment };
+      }
+    } else {
+      if (i === loserIndex) return { ...p, score: p.score - score.totalPoints };
+      return p;
+    }
+  });
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useGameStore = create<GameState & GameActions>()((set, get) => ({
@@ -173,7 +198,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     const ctx: WinContext = { isRiichi: human.isRiichi, isTsumo: true, seatWind: human.seatWind, roundWind: s.roundWind };
     const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer);
     if (!res) return;
-    set({ phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: true } });
+    set({ players: applyScoreTransfer(s.players, 0, res.score, true), phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: true } });
   },
 
   // ─────────────────────────────────────────────────────────────────── humanDiscard
@@ -196,7 +221,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       const ctx: WinContext = { isRiichi: aip.isRiichi, isTsumo: false, seatWind: aip.seatWind, roundWind: s.roundWind };
       const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer);
       if (res) {
-        set({ players, phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
+        set({ players: applyScoreTransfer(players, ai, res.score, false, 0), phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
         return;
       }
     }
@@ -227,7 +252,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       const ctx: WinContext = { isRiichi: aip.isRiichi, isTsumo: false, seatWind: aip.seatWind, roundWind: s.roundWind };
       const res = resolveWin(fullHand, aip.melds, discarded, ctx, aip.isDealer);
       if (res) {
-        set({ players, phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
+        set({ players: applyScoreTransfer(players, ai, res.score, false, 0), phase: 'game_over', result: { winnerIndex: ai, winTile: discarded, ...res, isTsumo: false, loserIndex: 0 } });
         return;
       }
     }
@@ -245,7 +270,8 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     const ctx: WinContext = { isRiichi: human.isRiichi, isTsumo: false, seatWind: human.seatWind, roundWind: s.roundWind };
     const res = resolveWin(fullHand, human.melds, winTile, ctx, human.isDealer);
     if (!res) return;
-    set({ phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: false, loserIndex: s.pendingDiscard.playerIndex } });
+    const loserIdx = s.pendingDiscard.playerIndex;
+    set({ players: applyScoreTransfer(s.players, 0, res.score, false, loserIdx), phase: 'game_over', result: { winnerIndex: 0, winTile, ...res, isTsumo: false, loserIndex: loserIdx } });
   },
 
   // ─────────────────────────────────────────────────────────────────── humanPon
@@ -335,7 +361,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
         const ctx: WinContext = { isRiichi: player.isRiichi, isTsumo: false, seatWind: player.seatWind, roundWind: s.roundWind };
         const res = resolveWin(fullHand, player.melds, pd.tile, ctx, player.isDealer);
         if (res) {
-          set({ phase: 'game_over', result: { winnerIndex: playerIndex, winTile: pd.tile, ...res, isTsumo: false, loserIndex: pd.playerIndex } });
+          set({ players: applyScoreTransfer(workPlayers, playerIndex, res.score, false, pd.playerIndex), phase: 'game_over', result: { winnerIndex: playerIndex, winTile: pd.tile, ...res, isTsumo: false, loserIndex: pd.playerIndex } });
           return;
         }
       }
@@ -386,7 +412,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       const res = resolveWin(fullHand, player.melds, drawn, ctx, player.isDealer);
       if (res) {
         workPlayers = workPlayers.map((p, i) => i === playerIndex ? { ...p, drawnTile: drawn } : p);
-        set({ players: workPlayers, wall: workWall, tilesLeft: workWall.length, phase: 'game_over', result: { winnerIndex: playerIndex, winTile: drawn, ...res, isTsumo: true } });
+        set({ players: applyScoreTransfer(workPlayers, playerIndex, res.score, true), wall: workWall, tilesLeft: workWall.length, phase: 'game_over', result: { winnerIndex: playerIndex, winTile: drawn, ...res, isTsumo: true } });
         return;
       }
     }
@@ -420,7 +446,7 @@ function aiDiscardResult(
     const ctx: WinContext = { isRiichi: other.isRiichi, isTsumo: false, seatWind: other.seatWind, roundWind };
     const res = resolveWin(fullHand, other.melds, discardTile, ctx, other.isDealer);
     if (res) {
-      return { players, wall, tilesLeft: wall.length, phase: 'game_over', result: { winnerIndex: otherIdx, winTile: discardTile, ...res, isTsumo: false, loserIndex: discarderIdx } };
+      return { players: applyScoreTransfer(players, otherIdx, res.score, false, discarderIdx), wall, tilesLeft: wall.length, phase: 'game_over', result: { winnerIndex: otherIdx, winTile: discardTile, ...res, isTsumo: false, loserIndex: discarderIdx } };
     }
   }
 

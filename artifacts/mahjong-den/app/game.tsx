@@ -21,6 +21,7 @@ import OpponentArea from '@/components/OpponentArea';
 import ActionButtons from '@/components/ActionButtons';
 import GameStatus from '@/components/GameStatus';
 import MeldDisplay from '@/components/MeldDisplay';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const { width } = Dimensions.get('window');
 const CHAR_LUNA = require('../assets/images/char_luna.png');
@@ -122,6 +123,7 @@ export default function GameScreen() {
 
   return (
     <LinearGradient colors={['#030712', '#0A1040', '#030B18']} style={styles.root}>
+      <AnimatedBackground />
       {/* Status bar */}
       <View style={{ paddingTop: topPad }}>
         <GameStatus roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} dora={dora} />
