@@ -78,7 +78,7 @@ export default function LobbyScreen() {
   // LANDSCAPE LAYOUT
   // ════════════════════════════════════════════════════════════════════════════
   if (isLandscape) {
-    const lsSafe = isViewportLandscape ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
+    const botPadLs = insets.bottom > 0 ? insets.bottom : 16;
 
     return (
       <LandscapeWrapper>
@@ -86,7 +86,7 @@ export default function LobbyScreen() {
           <AnimatedBackground />
 
           {/* ── Top bar ── */}
-          <View style={[lsStyles.topBar, { paddingTop: lsSafe.top > 0 ? lsSafe.top : 8 }]}>
+          <View style={[lsStyles.topBar, { paddingTop: insets.top > 0 ? insets.top : 8 }]}>
             <LinearGradient colors={['#1E1600', '#2A1E00'] as [string, string]} style={lsStyles.coinBadge}>
               <Text style={lsStyles.coinIcon}>🪙</Text>
               <Text style={lsStyles.coinText}>{coins.toLocaleString()}</Text>
@@ -125,7 +125,7 @@ export default function LobbyScreen() {
             <Animated.View style={[lsStyles.rightCol, {
               opacity: btnAnim,
               transform: [{ translateY: btnAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
-              paddingBottom: lsSafe.bottom > 0 ? lsSafe.bottom + 8 : 16,
+              paddingBottom: botPadLs,
             }]}>
               <Text style={styles.modeLabel}>Select Ruleset</Text>
               <View style={[styles.modeRow, { gap: 5 }]}>
@@ -157,7 +157,7 @@ export default function LobbyScreen() {
               <TouchableOpacity style={styles.primaryBtn} onPress={handleQuickMatch} activeOpacity={0.85}>
                 <LinearGradient
                   colors={[colors.primary, '#A07820'] as [string, string]}
-                  style={styles.primaryBtnInner}
+                  style={lsStyles.primaryInner}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.primaryBtnText}>Quick Match</Text>
@@ -166,22 +166,22 @@ export default function LobbyScreen() {
 
               {/* Play with Friends */}
               <TouchableOpacity style={styles.friendsBtn} onPress={() => goTo('/multiplayer')} activeOpacity={0.85}>
-                <LinearGradient colors={['#1A3A1E', '#0E2410'] as [string, string]} style={styles.friendsBtnInner}>
-                  <Text style={styles.friendsIcon}>👥</Text>
-                  <Text style={styles.friendsBtnText}>Play with Friends</Text>
+                <LinearGradient colors={['#1A3A1E', '#0E2410'] as [string, string]} style={lsStyles.friendsInner}>
+                  <Text style={lsStyles.friendsIcon}>👥</Text>
+                  <Text style={lsStyles.friendsText} numberOfLines={1}>Play with Friends</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               {/* Secondary row */}
-              <View style={styles.secondaryRow}>
+              <View style={lsStyles.secondaryRow}>
                 {[
-                  { icon: '🎴', label: 'Skins',    route: '/shop' },
-                  { icon: '📊', label: 'History',  route: '/history' },
-                  { icon: '⚙️', label: 'Settings', route: '/settings' },
+                  { icon: '🎴', label: 'Skins',   route: '/shop' },
+                  { icon: '📊', label: 'History', route: '/history' },
+                  { icon: '⚙️', label: 'Settings',route: '/settings' },
                 ].map(({ icon, label, route }) => (
-                  <TouchableOpacity key={route} style={styles.secondaryBtn} onPress={() => goTo(route)} activeOpacity={0.8}>
-                    <Text style={styles.secondaryIcon}>{icon}</Text>
-                    <Text style={styles.secondaryLabel}>{label}</Text>
+                  <TouchableOpacity key={route} style={lsStyles.secondaryBtn} onPress={() => goTo(route)} activeOpacity={0.8}>
+                    <Text style={lsStyles.secondaryIcon}>{icon}</Text>
+                    <Text style={lsStyles.secondaryLabel} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -422,30 +422,48 @@ const lsStyles = StyleSheet.create({
   body: { flex: 1, flexDirection: 'row' },
 
   leftCol: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRightWidth: 1, borderRightColor: '#1A3010', gap: 8, paddingVertical: 8,
+    flex: 1, alignItems: 'center', justifyContent: 'flex-start',
+    borderRightWidth: 1, borderRightColor: '#1A3010', gap: 10, paddingTop: 16, paddingBottom: 8,
   },
   titleBlock: { alignItems: 'center', gap: 2 },
   titleJp: {
-    color: colors.primary, fontSize: 28, fontWeight: '900', letterSpacing: 5,
+    color: colors.primary, fontSize: 30, fontWeight: '900', letterSpacing: 5,
     textShadowColor: 'rgba(212,168,48,0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10,
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   divLine: { width: 18, height: 1, backgroundColor: colors.primary, opacity: 0.5 },
-  titleEn: { color: colors.text, fontSize: 13, fontWeight: '800', letterSpacing: 4 },
-  charImage: { width: 130, height: 162 },
+  titleEn: { color: colors.text, fontSize: 12, fontWeight: '800', letterSpacing: 3 },
+  charImage: { width: 155, height: 195 },
   charGlow: {
     position: 'absolute', bottom: 0,
-    width: 90, height: 36,
+    width: 100, height: 36,
     backgroundColor: colors.primary, opacity: 0.1, borderRadius: 999,
   },
 
   rightCol: {
-    flex: 1, paddingHorizontal: 14, paddingTop: 8, justifyContent: 'center', gap: 8,
+    flex: 1, paddingHorizontal: 12, paddingTop: 14, justifyContent: 'flex-start', gap: 7,
   },
   modeDescBox: {
     backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 8,
-    paddingVertical: 6, paddingHorizontal: 10,
+    paddingVertical: 5, paddingHorizontal: 8,
     borderWidth: 1, borderColor: colors.border,
   },
+
+  primaryInner: { paddingVertical: 12, alignItems: 'center' },
+
+  friendsInner: {
+    paddingVertical: 10, paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
+  friendsIcon: { fontSize: 18 },
+  friendsText: { color: colors.text, fontSize: 13, fontWeight: '800', flex: 1 },
+
+  secondaryRow: { flexDirection: 'row', gap: 6 },
+  secondaryBtn: {
+    flex: 1, backgroundColor: colors.surfaceElevated, borderRadius: 10,
+    paddingVertical: 9, alignItems: 'center', gap: 3,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  secondaryIcon: { fontSize: 17 },
+  secondaryLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: '700' },
 });
