@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "sx5sDmS-pu8zO8-E8nFyO"
+uri = "file://artifacts/mahjong-den/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "B74pvVBpLTaqANW2NWVqP"
+uri = "file://artifacts/mahjong-den/assets/images/char_luna.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "tp4CsLP_JylBpUwUsGjFI"
+uri = "file://artifacts/mahjong-den/assets/images/char_ryuu.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "KJ5JQ6aZ3t11dJxjik4PW"
+uri = "file://artifacts/mahjong-den/assets/images/char_kira.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "CXPuKrk89BmBss0eSkb62"
+uri = "file://artifacts/mahjong-den/assets/images/char_sensei.png"
+type = "image"
+title = "generated_image"

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Mahjong Den",
+    "slug": "mahjong-den",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mahjong-den",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#080C1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mahjongden.app"
+    },
+    "android": {
+      "package": "com.mahjongden.app"
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
