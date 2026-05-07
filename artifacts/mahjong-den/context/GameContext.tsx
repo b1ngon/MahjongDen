@@ -11,9 +11,8 @@ export {
   type GameState,
 } from '../store/gameStore';
 
-export function GameProvider({ children }: { children: React.ReactNode }) {
-  // No-op: Zustand store is a singleton, no Provider needed.
-  return children as any;
-}
-
 import React from 'react';
+
+export function GameProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}

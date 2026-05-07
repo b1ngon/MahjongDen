@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Animated, ScrollView, Image, Platform,
+  Animated, ScrollView, Image, Platform, ImageSourcePropType,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -14,7 +14,7 @@ import { useHistory } from '@/context/HistoryContext';
 import MahjongTile from '@/components/MahjongTile';
 import { WIND_CHARS } from '@/engine/tiles';
 
-const CHAR_IMAGES: Record<string, any> = {
+const CHAR_IMAGES: Record<string, ImageSourcePropType> = {
   luna:   require('../assets/images/char_luna.png'),
   ryuu:   require('../assets/images/char_ryuu.png'),
   kira:   require('../assets/images/char_kira.png'),

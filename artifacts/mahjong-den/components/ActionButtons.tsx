@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Tile } from '../engine/tiles';
 import colors from '../constants/colors';
 import * as Haptics from 'expo-haptics';
@@ -53,7 +53,7 @@ function ActionButton({
       activeOpacity={0.7}
     >
       <Text style={[styles.btnLabel, { color: textColor }]}>{label}</Text>
-      {sublabel && <Text style={styles.btnSublabel}>{sublabel}</Text>}
+      {sublabel ? <Text style={styles.btnSublabel}>{sublabel}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -66,10 +66,45 @@ export default function ActionButtons({
   onDiscard, onRiichi, onTsumo, onRon, onPon, onKan, onChi, onPass,
   canTsumo, canRiichi,
 }: ActionButtonsProps) {
+  const [showChiPicker, setShowChiPicker] = useState(false);
 
-  // ── Call window ──────────────────────────────────────────────────────────
+  // ── Chi picker (shown when there are multiple chi options) ─────────────────
+  if (showChiPicker && phase === 'call_window') {
+    return (
+      <View style={styles.column}>
+        <Text style={styles.pickerLabel}>Choose a sequence for Chi:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.row}>
+            {chiOptions.map((opt, i) => {
+              const nums = opt.map(t => t.number).sort((a, b) => a - b);
+              return (
+                <ActionButton
+                  key={i}
+                  label={`${nums[0]}-${nums[1]}`}
+                  sublabel="Chi"
+                  color={colors.green}
+                  textColor="#fff"
+                  onPress={() => {
+                    setShowChiPicker(false);
+                    onChi([opt[0].id, opt[1].id]);
+                  }}
+                />
+              );
+            })}
+            <ActionButton
+              label="Cancel"
+              color={colors.surface}
+              textColor={colors.textMuted}
+              onPress={() => setShowChiPicker(false)}
+            />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── Call window ─────────────────────────────────────────────────────────────
   if (phase === 'call_window') {
-    const hasAnyCall = canRon || canPon || canKan || chiOptions.length > 0;
     return (
       <View style={styles.row}>
         {canRon && (
@@ -87,7 +122,13 @@ export default function ActionButtons({
             sublabel="Sequence"
             color={colors.green}
             textColor="#fff"
-            onPress={() => onChi([chiOptions[0][0].id, chiOptions[0][1].id] as [number, number])}
+            onPress={() => {
+              if (chiOptions.length === 1) {
+                onChi([chiOptions[0][0].id, chiOptions[0][1].id]);
+              } else {
+                setShowChiPicker(true);
+              }
+            }}
           />
         )}
         <ActionButton label="PASS" color={colors.surface} textColor={colors.textMuted} onPress={onPass} />
@@ -95,7 +136,7 @@ export default function ActionButtons({
     );
   }
 
-  // ── Player turn ──────────────────────────────────────────────────────────
+  // ── Player turn ─────────────────────────────────────────────────────────────
   if (phase === 'player_turn') {
     return (
       <View style={styles.row}>
@@ -127,7 +168,7 @@ export default function ActionButtons({
     );
   }
 
-  // ── AI turn ──────────────────────────────────────────────────────────────
+  // ── AI turn ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.row}>
       <View style={styles.hint}>
@@ -145,6 +186,17 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
+  },
+  column: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 4,
+  },
+  pickerLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 2,
   },
   btn: {
     paddingVertical: 10,

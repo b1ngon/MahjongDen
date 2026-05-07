@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { PlayerState } from '../context/GameContext';
 import MahjongTile from './MahjongTile';
 import DiscardPile from './DiscardPile';
 import colors from '../constants/colors';
 import { WIND_CHARS } from '../engine/tiles';
 
-const CHARACTER_IMAGES: Record<string, any> = {
+const CHARACTER_IMAGES: Record<string, ImageSourcePropType> = {
   ryuu:   require('../assets/images/char_ryuu.png'),
   kira:   require('../assets/images/char_kira.png'),
   sensei: require('../assets/images/char_sensei.png'),

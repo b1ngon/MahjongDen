@@ -230,6 +230,40 @@ export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTi
       yaku.push({ name: 'Seven Pairs', han: 2 });
   }
 
+  // Pinfu: closed, all sequences, non-yakuhai pair, ryanmen wait
+  if (isClosed && melds.length === 0) {
+    const structure = getHandStructure(hand, []);
+    if (structure) {
+      const { closedSets, pair } = structure;
+      const allSequences = closedSets.every(set => !sameTileType(set[0], set[1]));
+      const pairNotYakuhai =
+        pair[0].suit !== 'dragon' &&
+        !(pair[0].suit === 'wind' && pair[0].number === ctx.roundWind) &&
+        !(pair[0].suit === 'wind' && pair[0].number === ctx.seatWind);
+
+      if (allSequences && pairNotYakuhai) {
+        const winKey = tileKey(winTile);
+        const pairKey = tileKey(pair[0]);
+        let isRyanmen = false;
+        if (winKey !== pairKey) {
+          for (const set of closedSets) {
+            if (!sameTileType(set[0], set[1])) {
+              const nums = set.map(t => t.number).sort((a, b) => a - b);
+              const winNum = winTile.number;
+              if (set.some(t => t.suit === winTile.suit && t.number === winNum)) {
+                const pos = nums.indexOf(winNum);
+                if (pos === 0 && nums[0] > 1) isRyanmen = true;
+                if (pos === 2 && nums[2] < 9) isRyanmen = true;
+                break;
+              }
+            }
+          }
+        }
+        if (isRyanmen) yaku.push({ name: 'Pinfu', han: 1 });
+      }
+    }
+  }
+
   return yaku;
 }
 
