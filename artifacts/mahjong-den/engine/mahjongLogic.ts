@@ -25,13 +25,11 @@ function canFormSets(tiles: Tile[], needed: number): boolean {
   const sorted = [...tiles].sort(compareTiles);
   const first = sorted[0];
 
-  // Triplet
   if (sorted.filter(t => sameTileType(t, first)).length >= 3) {
     const rest = removeNByType(sorted, first, 3);
     if (canFormSets(rest, needed - 1)) return true;
   }
 
-  // Sequence
   if (!isHonor(first) && first.number <= 7) {
     const t2 = sorted.find(t => t.suit === first.suit && t.number === first.number + 1);
     const t3 = sorted.find(t => t.suit === first.suit && t.number === first.number + 2);
@@ -58,7 +56,6 @@ export function isWinningHand(hand: Tile[], melds: Meld[]): boolean {
     if (vals.length === 7 && vals.every(v => v === 2)) return true;
   }
 
-  // Standard: try each tile as the pair
   const seen = new Set<string>();
   for (const tile of sorted) {
     const k = tileKey(tile);
@@ -73,17 +70,72 @@ export function isWinningHand(hand: Tile[], melds: Meld[]): boolean {
   return false;
 }
 
+// ─── Hand structure (for fu/yaku analysis) ───────────────────────────────────
+
+function findSets(tiles: Tile[], needed: number): Tile[][] | null {
+  if (needed === 0) return tiles.length === 0 ? [] : null;
+  if (tiles.length < needed * 3) return null;
+
+  const sorted = [...tiles].sort(compareTiles);
+  const first = sorted[0];
+
+  if (sorted.filter(t => sameTileType(t, first)).length >= 3) {
+    const trip = sorted.filter(t => sameTileType(t, first)).slice(0, 3);
+    const rest = removeNByType(sorted, first, 3);
+    const more = findSets(rest, needed - 1);
+    if (more !== null) return [trip, ...more];
+  }
+
+  if (!isHonor(first) && first.number <= 7) {
+    const t2 = sorted.find(t => t.suit === first.suit && t.number === first.number + 1);
+    const t3 = sorted.find(t => t.suit === first.suit && t.number === first.number + 2);
+    if (t2 && t3) {
+      let rest = removeById(sorted, first);
+      rest = removeById(rest, t2);
+      rest = removeById(rest, t3);
+      const more = findSets(rest, needed - 1);
+      if (more !== null) return [[first, t2, t3], ...more];
+    }
+  }
+
+  return null;
+}
+
+export interface HandStructure {
+  closedSets: Tile[][];
+  pair: [Tile, Tile];
+}
+
+export function getHandStructure(hand: Tile[], melds: Meld[]): HandStructure | null {
+  const needed = 4 - melds.length;
+  const sorted = [...hand].sort(compareTiles);
+
+  const seen = new Set<string>();
+  for (const tile of sorted) {
+    const k = tileKey(tile);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if (sorted.filter(t => tileKey(t) === k).length >= 2) {
+      const second = sorted.find(t => tileKey(t) === k && t.id !== tile.id)!;
+      const rest = removeNByType(sorted, tile, 2);
+      const sets = findSets(rest, needed);
+      if (sets !== null) return { closedSets: sets, pair: [tile, second] };
+    }
+  }
+  return null;
+}
+
 // ─── Tenpai / waits ───────────────────────────────────────────────────────────
 
-const ALL_TILE_TYPES: {suit: Suit; number: number}[] = [
-  ...Array.from({length: 9}, (_, i) => ({suit: 'man'    as Suit, number: i + 1})),
-  ...Array.from({length: 9}, (_, i) => ({suit: 'pin'    as Suit, number: i + 1})),
-  ...Array.from({length: 9}, (_, i) => ({suit: 'sou'    as Suit, number: i + 1})),
-  ...Array.from({length: 4}, (_, i) => ({suit: 'wind'   as Suit, number: i + 1})),
-  ...Array.from({length: 3}, (_, i) => ({suit: 'dragon' as Suit, number: i + 1})),
+const ALL_TILE_TYPES: { suit: Suit; number: number }[] = [
+  ...Array.from({ length: 9 }, (_, i) => ({ suit: 'man'    as Suit, number: i + 1 })),
+  ...Array.from({ length: 9 }, (_, i) => ({ suit: 'pin'    as Suit, number: i + 1 })),
+  ...Array.from({ length: 9 }, (_, i) => ({ suit: 'sou'    as Suit, number: i + 1 })),
+  ...Array.from({ length: 4 }, (_, i) => ({ suit: 'wind'   as Suit, number: i + 1 })),
+  ...Array.from({ length: 3 }, (_, i) => ({ suit: 'dragon' as Suit, number: i + 1 })),
 ];
 
-export function getTenpaiWaits(hand: Tile[], melds: Meld[]): {suit: Suit; number: number}[] {
+export function getTenpaiWaits(hand: Tile[], melds: Meld[]): { suit: Suit; number: number }[] {
   return ALL_TILE_TYPES.filter(type => {
     const testTile: Tile = { ...type, id: -1 };
     return isWinningHand([...hand, testTile], melds);
@@ -130,39 +182,8 @@ export interface Yaku { name: string; han: number; }
 export interface WinContext {
   isRiichi: boolean;
   isTsumo: boolean;
-  seatWind: number;  // 1=E 2=S 3=W 4=N
+  seatWind: number;
   roundWind: number;
-}
-
-function identifySets(tiles: Tile[], needed: number): Tile[][] | null {
-  if (needed === 0) return tiles.length === 0 ? [] : null;
-  if (tiles.length < needed * 3) return null;
-
-  const sorted = [...tiles].sort(compareTiles);
-  const first = sorted[0];
-
-  // Triplet
-  if (sorted.filter(t => sameTileType(t, first)).length >= 3) {
-    const trip = sorted.filter(t => sameTileType(t, first)).slice(0, 3);
-    const rest = removeNByType(sorted, first, 3);
-    const more = identifySets(rest, needed - 1);
-    if (more !== null) return [trip, ...more];
-  }
-
-  // Sequence
-  if (!isHonor(first) && first.number <= 7) {
-    const t2 = sorted.find(t => t.suit === first.suit && t.number === first.number + 1);
-    const t3 = sorted.find(t => t.suit === first.suit && t.number === first.number + 2);
-    if (t2 && t3) {
-      let rest = removeById(sorted, first);
-      rest = removeById(rest, t2);
-      rest = removeById(rest, t3);
-      const more = identifySets(rest, needed - 1);
-      if (more !== null) return [[first, t2, t3], ...more];
-    }
-  }
-
-  return null;
 }
 
 export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTile: Tile): Yaku[] {
@@ -172,17 +193,14 @@ export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTi
 
   if (ctx.isRiichi && isClosed)           yaku.push({ name: 'Riichi', han: 1 });
   if (ctx.isTsumo && isClosed)            yaku.push({ name: 'Menzen Tsumo', han: 1 });
-
-  // Tanyao: no terminals or honors
   if (allTiles.every(t => !isTerminal(t))) yaku.push({ name: 'Tanyao', han: 1 });
 
-  // Yakuhai: triplet of dragons / seat-wind / round-wind
-  const meldAndClosedSets = [
+  const allSets = [
     ...melds.map(m => m.tiles),
-    ...(identifySets(hand, 4 - melds.length) ?? []),
+    ...(findSets(hand, 4 - melds.length) ?? []),
   ];
 
-  for (const set of meldAndClosedSets) {
+  for (const set of allSets) {
     if (set.length < 3) continue;
     const t = set[0];
     const isTriplet = sameTileType(set[0], set[1]) && sameTileType(set[0], set[2]);
@@ -195,7 +213,6 @@ export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTi
       yaku.push({ name: 'Seat Wind', han: 1 });
   }
 
-  // Honitsu / Chinitsu
   const nonHonors = allTiles.filter(t => !isHonor(t));
   const suits = [...new Set(nonHonors.map(t => t.suit))];
   if (suits.length === 1) {
@@ -205,7 +222,6 @@ export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTi
       yaku.push({ name: 'Chinitsu', han: isClosed ? 6 : 5 });
   }
 
-  // Seven pairs
   if (isClosed && hand.length === 14) {
     const counts: Record<string, number> = {};
     hand.forEach(t => { counts[tileKey(t)] = (counts[tileKey(t)] || 0) + 1; });
@@ -217,33 +233,136 @@ export function identifyYaku(hand: Tile[], melds: Meld[], ctx: WinContext, winTi
   return yaku;
 }
 
+// ─── Fu calculation ───────────────────────────────────────────────────────────
+
+export function calculateFu(
+  hand: Tile[],
+  melds: Meld[],
+  winTile: Tile,
+  ctx: WinContext,
+): number {
+  // Seven pairs: always 25 fu
+  if (melds.length === 0) {
+    const counts: Record<string, number> = {};
+    hand.forEach(t => { counts[tileKey(t)] = (counts[tileKey(t)] || 0) + 1; });
+    if (Object.keys(counts).length === 7 && Object.values(counts).every(v => v === 2)) return 25;
+  }
+
+  const isClosed = melds.every(m => m.type === 'ankan');
+  let fu = (isClosed && !ctx.isTsumo) ? 30 : 20;
+  if (ctx.isTsumo) fu += 2;
+
+  // Meld fu
+  for (const meld of melds) {
+    const th = isTerminal(meld.tiles[0]);
+    if (meld.type === 'ankan') fu += th ? 32 : 16;
+    else if (meld.type === 'kan') fu += th ? 16 : 8;
+    else if (meld.type === 'pon') fu += th ? 4 : 2;
+  }
+
+  const structure = getHandStructure(hand, melds);
+  if (structure) {
+    const { closedSets, pair } = structure;
+
+    // Pair fu
+    const pt = pair[0];
+    if (pt.suit === 'dragon') fu += 2;
+    if (pt.suit === 'wind' && pt.number === ctx.roundWind) fu += 2;
+    if (pt.suit === 'wind' && pt.number === ctx.seatWind) fu += 2;
+
+    // Closed set fu
+    for (const set of closedSets) {
+      if (sameTileType(set[0], set[1])) {
+        fu += isTerminal(set[0]) ? 8 : 4;
+      }
+    }
+
+    // Wait type fu
+    const winKey = tileKey(winTile);
+    const pairKey = tileKey(pair[0]);
+
+    if (winKey === pairKey) {
+      fu += 2; // tanki
+    } else {
+      for (const set of closedSets) {
+        if (!sameTileType(set[0], set[1])) {
+          const nums = set.map(t => t.number).sort((a, b) => a - b);
+          const winNum = winTile.number;
+          const matchSet = set.find(t => t.suit === winTile.suit && t.number === winNum);
+          if (matchSet) {
+            const pos = nums.indexOf(winNum);
+            if (pos === 1) {
+              fu += 2; // kanchan
+            } else if (pos === 0 && nums[0] === 1) {
+              fu += 2; // penchan (held 2-3, waiting on 1)
+            } else if (pos === 2 && nums[2] === 9) {
+              fu += 2; // penchan (held 7-8, waiting on 9)
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return Math.ceil(fu / 10) * 10;
+}
+
 // ─── Scoring ─────────────────────────────────────────────────────────────────
 
 export interface ScoreResult {
   han: number;
+  fu: number;
   label: string;
   totalPoints: number;
+  dealerPayment?: number;
+  nonDealerPayment?: number;
 }
 
-export function calculateScore(yaku: Yaku[], isDealer: boolean, isTsumo: boolean): ScoreResult {
-  const han = yaku.reduce((s, y) => s + y.han, 0);
+export function calculateScore(
+  han: number,
+  fu: number,
+  isDealer: boolean,
+  isTsumo: boolean,
+): ScoreResult {
+  // Mangan check
+  const isMangan = han >= 5 || (han >= 4 && fu >= 30) || (han >= 3 && fu >= 70);
 
+  let basic: number;
   let label: string;
-  let base: number;
 
-  if (han >= 13)     { label = 'Yakuman';   base = 16000; }
-  else if (han >= 11){ label = 'Sanbaiman'; base = 12000; }
-  else if (han >= 8) { label = 'Baiman';    base = 8000;  }
-  else if (han >= 5) { label = 'Mangan';    base = 8000;  }
+  if (han >= 13)      { basic = 8000;  label = 'Yakuman'; }
+  else if (han >= 11) { basic = 6000;  label = 'Sanbaiman'; }
+  else if (han >= 8)  { basic = 4000;  label = 'Baiman'; }
+  else if (han >= 6)  { basic = 3000;  label = 'Haneman'; }
+  else if (isMangan)  { basic = 2000;  label = 'Mangan'; }
   else {
-    const bases: Record<number, number> = { 1: 1000, 2: 2000, 3: 3900, 4: 7700 };
-    base = bases[han] ?? 1000;
-    label = `${han} Han`;
+    basic = fu * Math.pow(2, han + 2);
+    if (basic > 2000) { basic = 2000; label = 'Mangan'; }
+    else label = `${han} Han ${fu} Fu`;
   }
 
-  const dealerMult = isDealer ? 1.5 : 1;
-  const tsumoBonusMult = isTsumo ? 1 : 1;
-  const totalPoints = Math.ceil((base * dealerMult * tsumoBonusMult) / 100) * 100;
+  let totalPoints: number;
+  let dealerPayment: number | undefined;
+  let nonDealerPayment: number | undefined;
 
-  return { han, label, totalPoints };
+  if (isDealer) {
+    if (isTsumo) {
+      const each = Math.ceil(basic * 2 / 100) * 100;
+      totalPoints = each * 3;
+      nonDealerPayment = each;
+    } else {
+      totalPoints = Math.ceil(basic * 6 / 100) * 100;
+    }
+  } else {
+    if (isTsumo) {
+      dealerPayment = Math.ceil(basic * 2 / 100) * 100;
+      nonDealerPayment = Math.ceil(basic / 100) * 100;
+      totalPoints = dealerPayment + nonDealerPayment * 2;
+    } else {
+      totalPoints = Math.ceil(basic * 4 / 100) * 100;
+    }
+  }
+
+  return { han, fu, label, totalPoints, dealerPayment, nonDealerPayment };
 }

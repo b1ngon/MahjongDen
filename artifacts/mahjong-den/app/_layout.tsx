@@ -11,7 +11,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { GameProvider } from "@/context/GameContext";
 import { HistoryProvider } from "@/context/HistoryContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 
@@ -40,15 +39,13 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <SettingsProvider>
               <HistoryProvider>
-                <GameProvider>
-                  <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="game" options={{ animation: 'slide_from_right' }} />
-                    <Stack.Screen name="results" options={{ animation: 'fade', presentation: 'transparentModal' }} />
-                    <Stack.Screen name="history" options={{ animation: 'slide_from_bottom' }} />
-                    <Stack.Screen name="settings" options={{ animation: 'slide_from_bottom' }} />
-                  </Stack>
-                </GameProvider>
+                <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="game" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="results" options={{ animation: 'fade', presentation: 'transparentModal' }} />
+                  <Stack.Screen name="history" options={{ animation: 'slide_from_bottom' }} />
+                  <Stack.Screen name="settings" options={{ animation: 'slide_from_bottom' }} />
+                </Stack>
               </HistoryProvider>
             </SettingsProvider>
           </GestureHandlerRootView>
