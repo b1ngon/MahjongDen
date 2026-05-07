@@ -34,7 +34,7 @@ export default function SettingsScreen() {
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   return (
-    <LinearGradient colors={['#04071A', '#080C1A']} style={styles.root}>
+    <LinearGradient colors={['#030D04', '#061209']} style={styles.root}>
       <AnimatedBackground />
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>

@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import colors from '@/constants/colors';
 import { useGameStore } from '@/store/gameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useGameEngine } from '@/hooks/useGameEngine';
 import { isTenpai, isWinningHand } from '@/engine/mahjongLogic';
 import { WIND_CHARS } from '@/engine/tiles';
@@ -43,7 +44,7 @@ export default function GameScreen() {
   const {
     humanDiscard, humanRiichi, humanTsumo,
     humanRon, humanPon, humanKan, humanChi, humanPass,
-  } = useGameStore(s => ({
+  } = useGameStore(useShallow(s => ({
     humanDiscard: s.humanDiscard,
     humanRiichi:  s.humanRiichi,
     humanTsumo:   s.humanTsumo,
@@ -52,7 +53,7 @@ export default function GameScreen() {
     humanKan:     s.humanKan,
     humanChi:     s.humanChi,
     humanPass:    s.humanPass,
-  }));
+  })));
 
   // AI engine hook
   useGameEngine();
@@ -122,7 +123,7 @@ export default function GameScreen() {
   }
 
   return (
-    <LinearGradient colors={['#030712', '#0A1040', '#030B18']} style={styles.root}>
+    <LinearGradient colors={['#030D04', '#061209', '#030D04']} style={styles.root}>
       <AnimatedBackground />
       {/* Status bar */}
       <View style={{ paddingTop: topPad }}>

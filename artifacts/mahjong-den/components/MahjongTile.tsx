@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Tile, tileLabel, tileSuitLabel, isHonor } from '../engine/tiles';
 import colors from '../constants/colors';
+import { SKINS, SkinDef } from '../constants/skins';
+import { useShopStore } from '../store/shopStore';
 
 interface Props {
   tile: Tile;
@@ -14,17 +16,17 @@ interface Props {
   disabled?: boolean;
 }
 
-function getSuitColor(tile: Tile): string {
-  if (tile.suit === 'man') return colors.manColor;
-  if (tile.suit === 'pin') return colors.pinColor;
-  if (tile.suit === 'sou') return colors.souColor;
-  if (tile.suit === 'wind') return colors.honorColor;
+function getSuitColor(tile: Tile, skin: SkinDef): string {
+  if (tile.suit === 'man') return skin.manColor;
+  if (tile.suit === 'pin') return skin.pinColor;
+  if (tile.suit === 'sou') return skin.souColor;
+  if (tile.suit === 'wind') return skin.honorColor;
   if (tile.suit === 'dragon') {
     if (tile.number === 1) return colors.dragonHakuColor;
-    if (tile.number === 2) return colors.dragonHatsuColor;
-    return colors.dragonChunColor;
+    if (tile.number === 2) return skin.souColor;
+    return skin.manColor;
   }
-  return colors.honorColor;
+  return skin.honorColor;
 }
 
 export default function MahjongTile({
@@ -37,33 +39,41 @@ export default function MahjongTile({
   onPress,
   disabled = false,
 }: Props) {
-  const suitColor = getSuitColor(tile);
+  const activeSkinId = useShopStore(s => s.activeSkinId);
+  const skin = SKINS.find(s => s.id === activeSkinId) ?? SKINS[0];
 
-  const width  = tiny ? 22 : small ? 30 : 40;
-  const height = tiny ? 30 : small ? 42 : 56;
-  const labelSize = tiny ? 11 : small ? 13 : 18;
-  const suitSize  = tiny ? 7  : small ? 9  : 12;
-  const elevation = selected ? 6 : 2;
+  const suitColor = getSuitColor(tile, skin);
+
+  const w       = tiny ? 22 : small ? 30 : 40;
+  const h       = tiny ? 30 : small ? 42 : 56;
+  const labelSz = tiny ? 11 : small ? 13 : 18;
+  const suitSz  = tiny ? 7  : small ? 9  : 12;
 
   const containerStyle = [
     styles.tile,
-    { width, height, elevation },
-    faceDown && styles.faceDown,
-    selected && styles.selected,
-    highlighted && styles.highlighted,
+    {
+      width: w, height: h,
+      backgroundColor: faceDown ? skin.tileBackFace : skin.tileBackground,
+      borderColor: faceDown ? '#2A5080'
+        : selected    ? skin.borderGlow
+        : highlighted ? colors.red
+        : skin.tileBorder,
+      borderWidth: (selected || highlighted) ? 2 : 1,
+      elevation: selected ? 6 : 2,
+    },
   ];
 
   const inner = faceDown ? (
-    <View style={[styles.backPattern, { borderRadius: 4 }]}>
+    <View style={styles.backPattern}>
       <Text style={styles.backText}>🀫</Text>
     </View>
   ) : (
     <>
-      <Text style={[styles.label, { fontSize: labelSize, color: suitColor }]}>
+      <Text style={[styles.label, { fontSize: labelSz, color: suitColor }]}>
         {tileLabel(tile)}
       </Text>
       {!isHonor(tile) && (
-        <Text style={[styles.suitLabel, { fontSize: suitSize, color: suitColor }]}>
+        <Text style={[styles.suitLabel, { fontSize: suitSz, color: suitColor }]}>
           {tileSuitLabel(tile)}
         </Text>
       )}
@@ -76,7 +86,7 @@ export default function MahjongTile({
         onPress={onPress}
         disabled={disabled}
         activeOpacity={0.75}
-        style={[containerStyle, selected && { transform: [{ translateY: -8 }] }]}
+        style={[containerStyle, selected && styles.selectedLift]}
       >
         {inner}
       </TouchableOpacity>
@@ -84,7 +94,7 @@ export default function MahjongTile({
   }
 
   return (
-    <View style={[containerStyle, selected && { transform: [{ translateY: -8 }] }]}>
+    <View style={[containerStyle, selected && styles.selectedLift]}>
       {inner}
     </View>
   );
@@ -92,42 +102,14 @@ export default function MahjongTile({
 
 const styles = StyleSheet.create({
   tile: {
-    backgroundColor: colors.tileBackground,
     borderRadius: 5,
-    borderWidth: 1,
-    borderColor: colors.tileBorder,
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: '0px 2px 3px rgba(0,0,0,0.4)',
-  },
-  faceDown: {
-    backgroundColor: colors.tileBackFace,
-    borderColor: '#2A5080',
-  },
-  selected: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    boxShadow: '0px 0px 6px rgba(200,168,75,0.8)',
-  },
-  highlighted: {
-    borderColor: '#E53E3E',
-    borderWidth: 2,
-  },
-  label: {
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  suitLabel: {
-    textAlign: 'center',
-    fontWeight: '600',
-    marginTop: -2,
-  },
-  backPattern: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backText: {
-    fontSize: 18,
-  },
+  } as any,
+  selectedLift: { transform: [{ translateY: -8 }] },
+  backPattern: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  backText: { fontSize: 18 },
+  label: { fontWeight: '700', textAlign: 'center' },
+  suitLabel: { textAlign: 'center', fontWeight: '600', marginTop: -2 },
 });

@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import colors from '@/constants/colors';
 import { useGameStore } from '@/store/gameStore';
 import { useHistory } from '@/context/HistoryContext';
+import { useShopStore } from '@/store/shopStore';
 import MahjongTile from '@/components/MahjongTile';
 import { WIND_CHARS } from '@/engine/tiles';
 import AnimatedBackground from '@/components/AnimatedBackground';
@@ -32,12 +33,21 @@ export default function ResultsScreen() {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
 
+  const addCoins  = useShopStore(s => s.addCoins);
+
   const isExhaustiveDraw = !result;
   const winner   = result ? players[result.winnerIndex] : null;
   const loser    = (result?.loserIndex !== undefined) ? players[result.loserIndex] : null;
   const humanWon = result?.winnerIndex === 0;
 
+  // Coins earned this match
+  const coinsEarned = humanWon
+    ? Math.max(100, Math.floor((result?.score.totalPoints ?? 0) / 10))
+    : 10; // small consolation for losses
+
   useEffect(() => {
+    addCoins(coinsEarned);
+
     if (result) {
       addMatch({
         date: new Date().toISOString(),
@@ -75,10 +85,10 @@ export default function ResultsScreen() {
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const bgColors: [string, string] = humanWon
-    ? ['rgba(200,168,75,0.25)', 'rgba(8,12,26,0.98)']
+    ? ['rgba(200,168,75,0.28)', 'rgba(3,13,4,0.98)']
     : isExhaustiveDraw
-    ? ['rgba(90,110,138,0.25)', 'rgba(8,12,26,0.98)']
-    : ['rgba(229,62,62,0.2)',   'rgba(8,12,26,0.98)'];
+    ? ['rgba(44,92,50,0.3)',    'rgba(3,13,4,0.98)']
+    : ['rgba(197,48,48,0.2)',   'rgba(3,13,4,0.98)'];
 
   return (
     <View style={styles.overlay}>
@@ -104,6 +114,11 @@ export default function ResultsScreen() {
                 <Text style={styles.titleJp}>振り込み</Text>
               </>
             )}
+            {/* Coins earned */}
+            <View style={styles.coinEarned}>
+              <Text style={styles.coinEarnedIcon}>🪙</Text>
+              <Text style={styles.coinEarnedText}>+{coinsEarned} coins earned</Text>
+            </View>
           </Animated.View>
 
           {/* Winner card */}
@@ -200,6 +215,14 @@ export default function ResultsScreen() {
 }
 
 const styles = StyleSheet.create({
+  coinEarned: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 8, backgroundColor: 'rgba(212,168,48,0.15)',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,
+    borderWidth: 1, borderColor: 'rgba(212,168,48,0.3)',
+  },
+  coinEarnedIcon: { fontSize: 14 },
+  coinEarnedText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
   modal: { flex: 1 },
   scroll: { paddingHorizontal: 24, gap: 18, paddingBottom: 20 },
