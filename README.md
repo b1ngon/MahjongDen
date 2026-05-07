@@ -29,6 +29,8 @@ Then choose **Android**, **iOS** (macOS + Xcode), or **web** from the Expo CLI /
 | `lib/` | Shared libraries (API client, DB helpers, etc.) |
 | `artifacts/` | Other workspace apps and tooling |
 
+The workspace root also declares **`expo-router`** so `babel-preset-expo` can resolve it while bundling. With pnpm, having that package only under `artifacts/mahjong-den` can break Metro with `EXPO_ROUTER_APP_ROOT` / `require.context` errors.
+
 ## Android / iOS identifiers
 
 - **Android:** `com.mahjongden.app`
