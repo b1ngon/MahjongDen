@@ -81,6 +81,31 @@ export default function SettingsScreen() {
           />
         </View>
 
+        <SectionTitle title="DISPLAY" />
+        <View style={styles.card}>
+          <Row
+            label="Screen Orientation"
+            sub={settings.orientationMode === 'landscape'
+              ? 'Rotate device sideways for best experience'
+              : 'Standard vertical layout'}
+            right={
+              <View style={styles.segmentControl}>
+                {(['portrait', 'landscape'] as const).map(mode => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[styles.segment, settings.orientationMode === mode && styles.segmentActive]}
+                    onPress={() => updateSetting('orientationMode', mode)}
+                  >
+                    <Text style={[styles.segmentText, settings.orientationMode === mode && styles.segmentTextActive]}>
+                      {mode === 'portrait' ? '⬜ Port' : '⬛ Land'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            }
+          />
+        </View>
+
         <SectionTitle title="AUDIO & HAPTICS" />
         <View style={styles.card}>
           <Row

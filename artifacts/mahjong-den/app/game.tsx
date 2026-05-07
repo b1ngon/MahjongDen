@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform,
-  Dimensions, Image, Animated, ScrollView,
+  Dimensions, Image, Animated, ScrollView, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -16,6 +16,8 @@ import { isTenpai, isWinningHand } from '@/engine/mahjongLogic';
 import { WIND_CHARS, Tile } from '@/engine/tiles';
 import { GAME_MODE_MAP, MODE_TERMS } from '@/constants/gameModes';
 import { useShopStore } from '@/store/shopStore';
+import { useOrientationLayout } from '@/hooks/useOrientationLayout';
+import LandscapeWrapper from '@/components/LandscapeWrapper';
 
 import MahjongTile from '@/components/MahjongTile';
 import PlayerHand from '@/components/PlayerHand';
@@ -328,6 +330,11 @@ export default function GameScreen() {
   const terms        = MODE_TERMS[gameMode];
   const modeInfo     = GAME_MODE_MAP[gameMode];
 
+  const { isLandscape, isViewportLandscape } = useOrientationLayout();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const LW = Math.max(winW, winH); // landscape width  (long edge)
+  const LH = Math.min(winW, winH); // landscape height (short edge)
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -344,6 +351,291 @@ export default function GameScreen() {
   // Wind labels for seat positions
   const windLabel = (wind: number) => ['EAST','SOUTH','WEST','NORTH'][wind-1] ?? '–';
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // LANDSCAPE LAYOUT
+  // ════════════════════════════════════════════════════════════════════════════
+  if (isLandscape) {
+    const lsSafe = isViewportLandscape ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
+    const PANEL_COL = 88;
+
+    return (
+      <LandscapeWrapper>
+        <View style={[ls.root, { width: LW, height: LH }]}>
+          <AnimatedBackground />
+
+          {/* ── Compact HUD ── */}
+          <View style={[ls.hud, { paddingTop: lsSafe.top > 0 ? lsSafe.top : 6 }]}>
+            <TouchableOpacity style={styles.hudMenuBtn} onPress={() => router.back()}>
+              <Text style={styles.hudMenuText}>☰</Text>
+            </TouchableOpacity>
+            <LinearGradient colors={['#1E1600','#2A1E00'] as [string,string]} style={styles.hudCoin}>
+              <Text style={styles.hudCoinIcon}>🪙</Text>
+              <Text style={styles.hudCoinText}>{coins.toLocaleString()}</Text>
+            </LinearGradient>
+            <View style={ls.hudTitle}>
+              <Text style={ls.hudTitleText}>🐉 MAHJONG DEN</Text>
+              <Text style={ls.hudTitleSub}>{modeInfo.name}</Text>
+            </View>
+            <View style={styles.hudGiftBadge}>
+              <Text style={styles.hudGiftIcon}>🎁</Text>
+              <View style={styles.hudNotifDot}><Text style={styles.hudNotifText}>3</Text></View>
+            </View>
+            <View style={styles.hudStarBadge}>
+              <Text style={styles.hudStarIcon}>★</Text>
+              <Text style={styles.hudStarCount}>12</Text>
+            </View>
+            <TouchableOpacity style={styles.hudGear} onPress={() => router.push('/settings' as any)}>
+              <Text style={styles.hudGearText}>⚙</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Three-column main area ── */}
+          <View style={ls.body}>
+
+            {/* LEFT COL: NORTH (top) + WEST (bottom) */}
+            <View style={[ls.panelCol, { width: PANEL_COL }]}>
+              <CornerPanel
+                characterKey={aiTop.characterKey}
+                name={aiTop.name} score={aiTop.score}
+                seatWind={aiTop.seatWind} isActive={currentPlayer === 3}
+                isRiichi={aiTop.isRiichi} label={windLabel(aiTop.seatWind)}
+              />
+              <View style={{ flex: 1 }} />
+              <CornerPanel
+                characterKey={aiLeft.characterKey}
+                name={aiLeft.name} score={aiLeft.score}
+                seatWind={aiLeft.seatWind} isActive={currentPlayer === 2}
+                isRiichi={aiLeft.isRiichi} label={windLabel(aiLeft.seatWind)}
+              />
+            </View>
+
+            {/* CENTER: The table */}
+            <View style={ls.tableWrap}>
+              {/* Walnut border */}
+              <View style={ls.tableWood}>
+                {/* Gold trim */}
+                <View style={ls.tableGold}>
+                  {/* Inner lip */}
+                  <View style={ls.tableInnerLip}>
+                    {/* Green felt */}
+                    <LinearGradient
+                      colors={['#0E3C1E','#0A2E16','#07200F'] as [string,string,string]}
+                      style={ls.felt}
+                    >
+                      <View style={styles.feltGlow} />
+
+                      {/* North tile wall */}
+                      <View style={ls.northWall}>
+                        <TileWallRow count={topCount} melds={aiTop.melds.length > 0 ? aiTop.melds : undefined} />
+                      </View>
+
+                      {/* Middle: West col | discard center | East col */}
+                      <View style={ls.tableMiddle}>
+                        <View style={ls.sideWall}>
+                          <TileWallCol count={leftCount} melds={aiLeft.melds.length > 0 ? aiLeft.melds : undefined} />
+                        </View>
+                        <View style={ls.centerArea}>
+                          <View style={styles.discardTop}>
+                            <DiscardZone discards={aiTop.discards} cols={6} minRows={1} />
+                          </View>
+                          <View style={styles.discardMidRow}>
+                            <View style={styles.discardSide}>
+                              <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
+                            </View>
+                            <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} />
+                            <View style={styles.discardSide}>
+                              <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
+                            </View>
+                          </View>
+                          <View style={styles.discardBottom}>
+                            <DiscardZone discards={human.discards} cols={6} minRows={1} />
+                          </View>
+                        </View>
+                        <View style={ls.sideWall}>
+                          <TileWallCol count={rightCount} melds={aiRight.melds.length > 0 ? aiRight.melds : undefined} />
+                        </View>
+                      </View>
+
+                      {/* Player hand — full width, NO scroll needed in landscape */}
+                      <View style={ls.handRow}>
+                        <View style={ls.handDivider} />
+                        {human.melds.length > 0 && (
+                          <View style={styles.handMelds}>
+                            <MeldDisplay melds={human.melds} />
+                          </View>
+                        )}
+                        {/* Tiles laid flat, all visible at once */}
+                        <View style={ls.handTiles}>
+                          <PlayerHand
+                            hand={human.hand}
+                            drawnTile={human.drawnTile}
+                            selectedTileId={selectedTileId}
+                            onSelectTile={handleSelectTile}
+                            isRiichi={human.isRiichi}
+                            disabled={!isPlayerTurn}
+                          />
+                        </View>
+                        {gameMode === 'riichi' && dora.length > 0 && (
+                          <View style={styles.doraRow}>
+                            <Text style={styles.doraLabel}>Dora</Text>
+                            {dora.map((t, i) => <MahjongTile key={i} tile={t} tiny />)}
+                          </View>
+                        )}
+                      </View>
+
+                    </LinearGradient>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* RIGHT COL: EAST (top) + Human panel (bottom) */}
+            <View style={[ls.panelCol, { width: PANEL_COL }]}>
+              <CornerPanel
+                characterKey={aiRight.characterKey}
+                name={aiRight.name} score={aiRight.score}
+                seatWind={aiRight.seatWind} isActive={currentPlayer === 1}
+                isRiichi={aiRight.isRiichi} label={windLabel(aiRight.seatWind)}
+              />
+              <View style={{ flex: 1 }} />
+              {/* Human mini-panel */}
+              <Animated.View style={[
+                styles.panel,
+                { width: PANEL_COL - 4, borderColor: isPlayerTurn ? '#D4A840' : '#2A4A20' },
+              ]}>
+                <LinearGradient colors={['#0C1A0C','#152415'] as [string,string]} style={[styles.panelInner, { padding: 5 }]}>
+                  <View style={styles.panelWindRow}>
+                    <Text style={styles.panelWindSeat}>{windLabel(human.seatWind)}</Text>
+                    {human.isRiichi && <Text style={styles.panelRiichi}>R</Text>}
+                  </View>
+                  <Image source={CHAR[human.characterKey]} style={styles.panelAvatar} resizeMode="cover" />
+                  {isPlayerTurn && <View style={styles.humanActiveDot} />}
+                  <Text style={styles.panelName} numberOfLines={1}>{human.name}</Text>
+                  <Text style={styles.panelScore}>{human.score.toLocaleString()}</Text>
+                </LinearGradient>
+              </Animated.View>
+            </View>
+          </View>
+
+          {/* ── Call window (landscape) ── */}
+          {isCallWindow && pendingDiscard && (
+            <Animated.View style={[styles.callBanner, { opacity: flashAnim }]}>
+              <LinearGradient colors={['#060E06','#0A160A'] as [string,string]} style={styles.callBannerInner}>
+                <View style={styles.callLeft}>
+                  <Text style={styles.callFromLabel}>{players[pendingDiscard.playerIndex].name}</Text>
+                  <Text style={styles.callFromSub}>discards</Text>
+                  <MahjongTile tile={pendingDiscard.tile} highlighted small />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+                  <View style={styles.callBtns}>
+                    {chiPicker ? (
+                      callOptions.chiOptions.map((opt, i) => {
+                        const nums = opt.map(t => t.number).sort((a,b) => a-b);
+                        return (
+                          <GlossyBtn key={i} icon="→" label={`${nums[0]}-${nums[1]}`} variant="chow"
+                            onPress={() => { setChiPicker(false); humanChi([opt[0].id, opt[1].id]); }} />
+                        );
+                      })
+                    ) : (
+                      <>
+                        {callOptions.canRon && (
+                          <GlossyBtn icon="🀄" label={terms.win} variant="win"
+                            onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanRon(); }} />
+                        )}
+                        {callOptions.canPon && <GlossyBtn icon="✦" label={terms.pong} variant="pong" onPress={humanPon} />}
+                        {callOptions.canKan && <GlossyBtn icon="⬛" label={terms.gong} variant="gong" onPress={humanKan} />}
+                        {callOptions.chiOptions.length > 0 && (
+                          <GlossyBtn icon="→" label={terms.chow} variant="chow"
+                            onPress={() => callOptions.chiOptions.length === 1
+                              ? humanChi([callOptions.chiOptions[0][0].id, callOptions.chiOptions[0][1].id])
+                              : setChiPicker(true)
+                            } />
+                        )}
+                        <GlossyBtn icon="✕" label={terms.pass} onPress={() => { setChiPicker(false); humanPass(); }} />
+                      </>
+                    )}
+                  </View>
+                </ScrollView>
+              </LinearGradient>
+            </Animated.View>
+          )}
+
+          {/* ── Compact action bar (landscape) ── */}
+          {!isCallWindow && (
+            <LinearGradient
+              colors={['#050A05','#080E06'] as [string,string]}
+              style={[ls.actionBar, { paddingBottom: lsSafe.bottom > 0 ? lsSafe.bottom : 4 }]}
+            >
+              <View style={styles.actionGoldRule} />
+              <View style={ls.actionRow}>
+                {/* Left: hand info */}
+                <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={ls.actionSide}>
+                  <Text style={styles.actionSidePanelTop}>HAND</Text>
+                  <Text style={ls.actionScore}>{human.score.toLocaleString()}</Text>
+                </LinearGradient>
+
+                {/* Center: buttons */}
+                <View style={styles.actionCenter}>
+                  {isPlayerTurn ? (
+                    <>
+                      {canTsumo && (
+                        <GlossyBtn icon="🀄" label={terms.draw} variant="win" wide
+                          onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); humanTsumo(); }} />
+                      )}
+                      {canRiichi && selectedTileId !== null && terms.riichi !== null && (
+                        <GlossyBtn icon="⛩" label={terms.riichi} variant="riichi"
+                          onPress={() => { humanRiichi(selectedTileId!); setSelectedTileId(null); }} />
+                      )}
+                      <GlossyBtn
+                        icon="↑" label="DISCARD" wide
+                        disabled={selectedTileId === null || human.isRiichi || canTsumo}
+                        onPress={() => { humanDiscard(selectedTileId!); setSelectedTileId(null); }}
+                      />
+                      {selectedTileId === null && !canTsumo && (
+                        <Text style={styles.hintText}>tap a tile</Text>
+                      )}
+                    </>
+                  ) : (
+                    <View style={styles.waitWrap}>
+                      <Text style={styles.waitDots}>• • •</Text>
+                      <Text style={styles.waitText}>
+                        {phase === 'ai_turn' ? `${players[currentPlayer]?.name} thinking` : 'Starting…'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Right: wall count */}
+                <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={ls.actionSide}>
+                  <Text style={styles.actionSidePanelTop}>WALL</Text>
+                  <Text style={styles.actionWallCount}>{tilesLeft}</Text>
+                </LinearGradient>
+              </View>
+            </LinearGradient>
+          )}
+
+          {/* ── Discard popup ── */}
+          {popupData && (
+            <Animated.View pointerEvents="none" style={[styles.popupOverlay, { opacity: popupOpacity }]}>
+              <Animated.View style={{ transform: [{ scale: popupScale }] }}>
+                <LinearGradient colors={['#0D3A1A','#040E08'] as [string,string]} style={styles.popupCard}>
+                  <View style={styles.popupGoldBorder} />
+                  <Text style={styles.popupName}>{popupData.name}</Text>
+                  <MahjongTile tile={popupData.tile} />
+                  <Text style={styles.popupWord}>DISCARDS</Text>
+                </LinearGradient>
+              </Animated.View>
+            </Animated.View>
+          )}
+
+        </View>
+      </LandscapeWrapper>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PORTRAIT LAYOUT (original)
+  // ════════════════════════════════════════════════════════════════════════════
   return (
     <View style={[styles.root, { paddingTop: topPad }]}>
       <AnimatedBackground />
@@ -953,4 +1245,67 @@ const styles = StyleSheet.create({
   } as any,
   popupName: { color: '#D4A840', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
   popupWord: { color: '#5A4A18', fontSize: 9, letterSpacing: 2.5, fontWeight: '700', textTransform: 'uppercase' } as any,
+});
+
+// ─── Landscape-specific styles ─────────────────────────────────────────────────
+const ls = StyleSheet.create({
+  root: { backgroundColor: '#0A0804', overflow: 'hidden' },
+
+  // Compact HUD
+  hud: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingBottom: 4,
+    backgroundColor: 'rgba(5,4,2,0.82)',
+    borderBottomWidth: 1, borderBottomColor: '#1E3010',
+  },
+  hudTitle: { flex: 1, alignItems: 'center' },
+  hudTitleText: { color: '#D4A840', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
+  hudTitleSub: { color: '#5A4A18', fontSize: 8, letterSpacing: 1.5 },
+
+  // Three-column body
+  body: { flex: 1, flexDirection: 'row', gap: 2, paddingHorizontal: 4, paddingVertical: 4 },
+
+  panelCol: { justifyContent: 'space-between', paddingVertical: 2 },
+
+  // Table
+  tableWrap: { flex: 1 },
+  tableWood: {
+    flex: 1, borderRadius: 14, padding: 6,
+    backgroundColor: '#2E1606',
+    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.6)',
+  } as any,
+  tableGold: { flex: 1, borderRadius: 10, padding: 2, backgroundColor: '#C8A028' },
+  tableInnerLip: { flex: 1, borderRadius: 8, padding: 1, backgroundColor: '#1A0A02' },
+  felt: { flex: 1, borderRadius: 7, overflow: 'hidden', paddingHorizontal: 4, paddingTop: 4, paddingBottom: 2 },
+
+  // North wall (compact in landscape)
+  northWall: {
+    alignItems: 'center', paddingBottom: 3,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(80,180,100,0.12)',
+  },
+
+  // Middle
+  tableMiddle: { flex: 1, flexDirection: 'row', paddingVertical: 2 },
+  sideWall: { width: 28, justifyContent: 'flex-start', paddingTop: 2 },
+  centerArea: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 2 },
+
+  // Player hand at bottom of felt
+  handRow: { paddingTop: 3 },
+  handDivider: { height: 1, backgroundColor: 'rgba(80,180,100,0.18)', marginBottom: 3 },
+  handTiles: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+
+  // Compact action bar
+  actionBar: { paddingHorizontal: 6, paddingTop: 0 },
+  actionRow: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingVertical: 4 },
+  actionSide: {
+    width: 54, borderRadius: 8, padding: 5,
+    alignItems: 'center', gap: 1,
+    borderWidth: 1, borderColor: '#3A2A04',
+  },
+  actionScore: { color: '#8A7030', fontSize: 9, fontWeight: '700' },
 });

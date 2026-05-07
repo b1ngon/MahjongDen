@@ -6,6 +6,7 @@ interface Settings {
   hapticEnabled: boolean;
   showTileHints: boolean;
   animationSpeed: 'slow' | 'normal' | 'fast';
+  orientationMode: 'portrait' | 'landscape';
 }
 
 const DEFAULT: Settings = {
@@ -13,6 +14,7 @@ const DEFAULT: Settings = {
   hapticEnabled: true,
   showTileHints: true,
   animationSpeed: 'normal',
+  orientationMode: 'portrait',
 };
 
 interface SettingsContextValue {
