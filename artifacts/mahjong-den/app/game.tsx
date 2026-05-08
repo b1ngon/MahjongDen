@@ -8,7 +8,6 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-import colors from '@/constants/colors';
 import { useGameStore } from '@/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useGameEngine } from '@/hooks/useGameEngine';
@@ -18,16 +17,80 @@ import { GAME_MODE_MAP, MODE_TERMS } from '@/constants/gameModes';
 import { useShopStore } from '@/store/shopStore';
 import { useOrientationLayout } from '@/hooks/useOrientationLayout';
 import LandscapeWrapper from '@/components/LandscapeWrapper';
+import { CHARACTER_PORTRAITS } from '@/constants/characters';
 
 import MahjongTile from '@/components/MahjongTile';
 import PlayerHand from '@/components/PlayerHand';
 import MeldDisplay from '@/components/MeldDisplay';
-import AnimatedBackground from '@/components/AnimatedBackground';
+import GameDenBackdrop from '@/components/GameDenBackdrop';
 
 const { width: SW } = Dimensions.get('window');
-const PANEL_W = Math.min(SW * 0.27, 96);
+const PANEL_W = Math.min(SW * 0.27, 100);
 
+const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+
+/** Top bar aligned with the 3D mockup: menu · coins · centered logo · gift · stars · settings */
+function GameTopHud({
+  coins,
+  modeName,
+  paddingTop,
+  compact,
+  onMenu,
+  onSettings,
+}: {
+  coins: number;
+  modeName: string;
+  paddingTop: number;
+  compact?: boolean;
+  onMenu: () => void;
+  onSettings: () => void;
+}) {
+  const logoSize = compact ? 11 : 13;
+  const subSize = compact ? 7 : 8;
+  return (
+    <View style={[styles.mockHud, { paddingTop }]}>
+      <TouchableOpacity style={styles.hudMenuBtn} onPress={onMenu}>
+        <View style={styles.hamburger}>
+          <View style={styles.hamLine} />
+          <View style={styles.hamLine} />
+          <View style={styles.hamLine} />
+        </View>
+      </TouchableOpacity>
+      <LinearGradient colors={['#1A1208', '#2A1C0A', '#1A1208'] as [string, string, string]} style={styles.mockCoinPill}>
+        <View style={styles.mockCoinDisc}>
+          <Text style={styles.mockCoinSym}>◆</Text>
+        </View>
+        <Text style={styles.mockCoinAmt}>{coins.toLocaleString()}</Text>
+        <TouchableOpacity style={styles.mockCoinPlus} activeOpacity={0.85}>
+          <Text style={styles.mockCoinPlusTxt}>+</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+      <View style={styles.mockHudCenter}>
+        <View style={styles.mockDragonSeal}>
+          <Text style={styles.mockDragonIcon}>🐉</Text>
+        </View>
+        <Text style={[styles.mockBrand, { fontSize: logoSize, fontFamily: TITLE_FONT }]}>MAHJONG DEN</Text>
+        <Text style={[styles.mockBrandSub, compact && { fontSize: subSize }]}>{modeName}</Text>
+      </View>
+      <View style={styles.hudGiftBadge}>
+        <Text style={styles.hudGiftIcon}>🎁</Text>
+        <View style={styles.hudNotifDot}><Text style={styles.hudNotifText}>3</Text></View>
+      </View>
+      <View style={styles.hudStarBadge}>
+        <Text style={styles.hudStarIcon}>★</Text>
+        <Text style={styles.hudStarCount}>12</Text>
+      </View>
+      <TouchableOpacity style={styles.hudGear} onPress={onSettings}>
+        <Text style={styles.hudGearText}>⚙</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// Legacy keys remain in CHAR so any saved games / older players still resolve;
+// new defaults come from CHARACTER_PORTRAITS.
 const CHAR: Record<string, any> = {
+  ...CHARACTER_PORTRAITS,
   luna:   require('../assets/images/char_luna.png'),
   ryuu:   require('../assets/images/char_ryuu.png'),
   kira:   require('../assets/images/char_kira.png'),
@@ -63,13 +126,15 @@ function CornerPanel({
 
   return (
     <Animated.View style={[styles.panel, { borderColor }]}>
-      {/* Gold corner ornaments */}
-      <View style={[styles.panelCornerOrnament, { top: 0, left: 0 }]} />
-      <View style={[styles.panelCornerOrnament, { top: 0, right: 0 }]} />
-      <LinearGradient
-        colors={['#0C1A0C', '#152415', '#0E1A0E'] as [string,string,string]}
-        style={styles.panelInner}
-      >
+      <View style={styles.panelWoodBezel}>
+        <View style={[styles.panelCorJewel, { top: 2, left: 2, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 3 }]} />
+        <View style={[styles.panelCorJewel, { top: 2, right: 2, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 3 }]} />
+        <View style={[styles.panelCorJewel, { bottom: 2, left: 2, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 3 }]} />
+        <View style={[styles.panelCorJewel, { bottom: 2, right: 2, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 3 }]} />
+        <LinearGradient
+          colors={['#1C1008', '#2A1810', '#120804'] as [string, string, string]}
+          style={styles.panelInner}
+        >
         {/* Wind seat label */}
         <View style={styles.panelWindRow}>
           <Text style={styles.panelWindSeat}>{label ?? WIND_CHARS[seatWind - 1]}</Text>
@@ -86,6 +151,7 @@ function CornerPanel({
         <Text style={styles.panelName} numberOfLines={1}>{name}</Text>
         <Text style={styles.panelScore}>{score.toLocaleString()}</Text>
       </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -155,19 +221,101 @@ function DiscardZone({ discards, cols, minRows = 2 }: { discards: Tile[]; cols: 
   );
 }
 
-// ─── Ornate center medallion ───────────────────────────────────────────────────
-function Medallion({ roundWind, dealer, tilesLeft }: { roundWind: number; dealer: number; tilesLeft: number }) {
-  const windName = ['EAST','SOUTH','WEST','NORTH'][roundWind - 1] ?? 'EAST';
+// ─── Center table medallion (mockup: EAST 1 / ROUND n / big count) ─────────────
+function Medallion({
+  roundWind,
+  dealer,
+  tilesLeft,
+  discardPulse,
+}: {
+  roundWind: number;
+  dealer: number;
+  tilesLeft: number;
+  discardPulse: number;
+}) {
+  const windName = ['EAST', 'SOUTH', 'WEST', 'NORTH'][roundWind - 1] ?? 'EAST';
+  const roundNum = Math.min(9, Math.max(1, 1 + Math.floor(discardPulse / 4)));
   return (
-    <View style={styles.medallionOuter}>
-      <LinearGradient colors={['#1A1200', '#0E0C00'] as [string,string]} style={styles.medallionBody}>
-        <Text style={styles.medallionLine1}>{windName} {dealer + 1}</Text>
-        <View style={styles.medallionHRule} />
-        <Text style={styles.medallionLabel}>ROUND</Text>
-        <View style={styles.medallionHRule} />
-        <Text style={styles.medallionCount}>{tilesLeft}</Text>
+      <LinearGradient colors={['#C9A040', '#7A6020', '#A88430'] as [string, string, string]} style={styles.medallionOuter}>
+        <LinearGradient colors={['#0A0A0A', '#050505', '#121008'] as [string, string, string]} style={styles.medallionBody}>
+          <Text style={styles.medallionLine1}>{windName} {dealer + 1}</Text>
+          <View style={styles.medallionHRule} />
+          <Text style={styles.medallionRoundLabel}>ROUND {roundNum}</Text>
+          <View style={styles.medallionHRule} />
+          <Text style={styles.medallionCount}>{tilesLeft}</Text>
+        </LinearGradient>
       </LinearGradient>
-    </View>
+  );
+}
+
+// ─── Wind compass: W S E N letters at the cardinal edges of the felt ─────────
+function WindCompass() {
+  return (
+    <>
+      <View pointerEvents="none" style={[styles.compassMark, styles.compassN]}>
+        <Text style={styles.compassText}>N</Text>
+      </View>
+      <View pointerEvents="none" style={[styles.compassMark, styles.compassE]}>
+        <Text style={styles.compassText}>E</Text>
+      </View>
+      <View pointerEvents="none" style={[styles.compassMark, styles.compassS]}>
+        <Text style={styles.compassText}>S</Text>
+      </View>
+      <View pointerEvents="none" style={[styles.compassMark, styles.compassW]}>
+        <Text style={styles.compassText}>W</Text>
+      </View>
+    </>
+  );
+}
+
+// ─── Power-up button with a consumable count badge (HINT / SHUFFLE / UNDO) ───
+function PowerBtn({
+  icon, label, count, onPress, disabled = false,
+}: {
+  icon: string; label: string; count: number;
+  onPress: () => void; disabled?: boolean;
+}) {
+  const isDepleted = count <= 0;
+  const isDisabled = disabled || isDepleted;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  function press() {
+    if (isDisabled) return;
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.92, duration: 70, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 220, friction: 7 }),
+    ]).start();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }
+
+  return (
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, isDisabled && { opacity: 0.4 }]}>
+      <TouchableOpacity onPress={press} disabled={isDisabled} activeOpacity={1}>
+        <LinearGradient colors={['#1A140C', '#0C0A08', '#12100A'] as [string, string, string]} style={styles.powerBtn}>
+          <Text style={styles.powerIcon}>{icon}</Text>
+          <Text style={styles.powerLabel}>{label}</Text>
+          <View style={[styles.powerBadge, isDepleted && { backgroundColor: '#3A2A06', borderColor: '#5A4018' }]}>
+            <Text style={[styles.powerBadgeText, isDepleted && { color: '#7A6030' }]}>{count}</Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ─── "Pair Dragons" coin badge (decorative cost indicator) ────────────────────
+function PairDragonsBadge({ cost = 2000 }: { cost?: number }) {
+  return (
+    <LinearGradient colors={['#0E1A0E', '#152415'] as [string, string]} style={styles.pairDragonsBadge}>
+      <View style={styles.pairDragonsCoin}>
+        <Text style={styles.pairDragonsCoinText}>$</Text>
+      </View>
+      <View>
+        <Text style={styles.pairDragonsTitle}>PAIR{"\n"}DRAGONS</Text>
+        <Text style={styles.pairDragonsCost}>{cost.toLocaleString()}</Text>
+      </View>
+    </LinearGradient>
   );
 }
 
@@ -192,8 +340,8 @@ function GlossyBtn({
   }
 
   const gradMap: Record<string, [string,string]> = {
-    default: ['#1E3C1E', '#112411'],
-    win:     ['#5A0C0C', '#3A0606'],
+    default: ['#1C1810', '#0E0C08'],
+    win:     ['#5A0C0C', '#2A0604'],
     pong:    ['#2D0A5C', '#1C0638'],
     gong:    ['#0A2B5C', '#061838'],
     chow:    ['#0A4C1A', '#063010'],
@@ -201,12 +349,12 @@ function GlossyBtn({
   };
 
   const borderMap: Record<string, string> = {
-    default: '#2E5A2E',
-    win:     '#8A1A1A',
-    pong:    '#4A1A8A',
-    gong:    '#1A3A8A',
-    chow:    '#1A6A30',
-    riichi:  '#8A5A00',
+    default: '#9A7828',
+    win:     '#C04040',
+    pong:    '#6A40A0',
+    gong:    '#304A9A',
+    chow:    '#2A7A38',
+    riichi:  '#B89430',
   };
 
   return (
@@ -250,12 +398,22 @@ export default function GameScreen() {
   const {
     humanDiscard, humanRiichi, humanTsumo,
     humanRon, humanPon, humanKan, humanChi, humanPass,
+    useHint, clearHint, useShuffle, useUndo,
   } = useGameStore(useShallow(s => ({
     humanDiscard: s.humanDiscard, humanRiichi: s.humanRiichi,
     humanTsumo:   s.humanTsumo,  humanRon:    s.humanRon,
     humanPon:     s.humanPon,    humanKan:    s.humanKan,
     humanChi:     s.humanChi,    humanPass:   s.humanPass,
+    useHint:      s.useHint,     clearHint:   s.clearHint,
+    useShuffle:   s.useShuffle,  useUndo:     s.useUndo,
   })));
+
+  const hintTileId    = useGameStore(s => s.hintTileId);
+  const hintCount     = useGameStore(s => s.hintCount);
+  const shuffleCount  = useGameStore(s => s.shuffleCount);
+  const undoCount     = useGameStore(s => s.undoCount);
+  const handOrder     = useGameStore(s => s.handOrder);
+  const undoSnapshot  = useGameStore(s => s.undoSnapshot);
 
   const startGame = useGameStore(s => s.startGame);
   useGameEngine();
@@ -319,6 +477,16 @@ export default function GameScreen() {
   const aiRight = players[1];
   const aiLeft  = players[2];
   const aiTop   = players[3];
+  const discardPulse = players.reduce((n, p) => n + p.discards.length, 0);
+
+  // Mockup pins corners to seat wind (independent of who is the human):
+  // EAST  → top-left, SOUTH → top-right,
+  // WEST  → bottom-right, NORTH → bottom-left.
+  const playerByWind = (w: number) => players.find(p => p.seatWind === w) ?? players[0];
+  const seatEast  = playerByWind(1);
+  const seatSouth = playerByWind(2);
+  const seatWest  = playerByWind(3);
+  const seatNorth = playerByWind(4);
 
   const fullHand  = human.drawnTile ? [...human.hand, human.drawnTile] : human.hand;
   const canTsumo  = phase === 'player_turn' && currentPlayer === 0 && isWinningHand(fullHand, human.melds);
@@ -361,51 +529,34 @@ export default function GameScreen() {
     return (
       <LandscapeWrapper>
         <View style={[ls.root, { flex: 1 }]}>
-          <AnimatedBackground />
+          <GameDenBackdrop />
 
-          {/* ── Compact HUD ── */}
-          <View style={[ls.hud, { paddingTop: lsSafe.top > 0 ? lsSafe.top : 6 }]}>
-            <TouchableOpacity style={styles.hudMenuBtn} onPress={() => router.back()}>
-              <Text style={styles.hudMenuText}>☰</Text>
-            </TouchableOpacity>
-            <LinearGradient colors={['#1E1600','#2A1E00'] as [string,string]} style={styles.hudCoin}>
-              <Text style={styles.hudCoinIcon}>🪙</Text>
-              <Text style={styles.hudCoinText}>{coins.toLocaleString()}</Text>
-            </LinearGradient>
-            <View style={ls.hudTitle}>
-              <Text style={ls.hudTitleText}>🐉 MAHJONG DEN</Text>
-              <Text style={ls.hudTitleSub}>{modeInfo.name}</Text>
-            </View>
-            <View style={styles.hudGiftBadge}>
-              <Text style={styles.hudGiftIcon}>🎁</Text>
-              <View style={styles.hudNotifDot}><Text style={styles.hudNotifText}>3</Text></View>
-            </View>
-            <View style={styles.hudStarBadge}>
-              <Text style={styles.hudStarIcon}>★</Text>
-              <Text style={styles.hudStarCount}>12</Text>
-            </View>
-            <TouchableOpacity style={styles.hudGear} onPress={() => router.push('/settings' as any)}>
-              <Text style={styles.hudGearText}>⚙</Text>
-            </TouchableOpacity>
-          </View>
+          <GameTopHud
+            coins={coins}
+            modeName={modeInfo.name}
+            paddingTop={lsSafe.top > 0 ? lsSafe.top : 6}
+            compact
+            onMenu={() => router.back()}
+            onSettings={() => router.push('/settings' as any)}
+          />
 
           {/* ── Three-column main area ── */}
           <View style={ls.body}>
 
-            {/* LEFT COL: NORTH (top) + WEST (bottom) */}
+            {/* LEFT COL: EAST (top) + NORTH (bottom) */}
             <View style={[ls.panelCol, { width: PANEL_COL }]}>
               <CornerPanel
-                characterKey={aiTop.characterKey}
-                name={aiTop.name} score={aiTop.score}
-                seatWind={aiTop.seatWind} isActive={currentPlayer === 3}
-                isRiichi={aiTop.isRiichi} label={windLabel(aiTop.seatWind)}
+                characterKey={seatEast.characterKey}
+                name={seatEast.name} score={seatEast.score}
+                seatWind={seatEast.seatWind} isActive={currentPlayer === seatEast.index}
+                isRiichi={seatEast.isRiichi} label={windLabel(seatEast.seatWind)}
               />
               <View style={{ flex: 1 }} />
               <CornerPanel
-                characterKey={aiLeft.characterKey}
-                name={aiLeft.name} score={aiLeft.score}
-                seatWind={aiLeft.seatWind} isActive={currentPlayer === 2}
-                isRiichi={aiLeft.isRiichi} label={windLabel(aiLeft.seatWind)}
+                characterKey={seatNorth.characterKey}
+                name={seatNorth.name} score={seatNorth.score}
+                seatWind={seatNorth.seatWind} isActive={currentPlayer === seatNorth.index}
+                isRiichi={seatNorth.isRiichi} label={windLabel(seatNorth.seatWind)}
               />
             </View>
 
@@ -419,7 +570,7 @@ export default function GameScreen() {
                   <View style={ls.tableInnerLip}>
                     {/* Green felt */}
                     <LinearGradient
-                      colors={['#0E3C1E','#0A2E16','#07200F'] as [string,string,string]}
+                      colors={['#0F4A28', '#0A3220', '#061810'] as [string, string, string]}
                       style={ls.felt}
                     >
                       <View style={styles.feltGlow} />
@@ -435,6 +586,7 @@ export default function GameScreen() {
                           <TileWallCol count={leftCount} melds={aiLeft.melds.length > 0 ? aiLeft.melds : undefined} />
                         </View>
                         <View style={ls.centerArea}>
+                          <WindCompass />
                           <View style={styles.discardTop}>
                             <DiscardZone discards={aiTop.discards} cols={6} minRows={1} />
                           </View>
@@ -442,7 +594,7 @@ export default function GameScreen() {
                             <View style={styles.discardSide}>
                               <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
                             </View>
-                            <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} />
+                            <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                             <View style={styles.discardSide}>
                               <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
                             </View>
@@ -473,6 +625,8 @@ export default function GameScreen() {
                             onSelectTile={handleSelectTile}
                             isRiichi={human.isRiichi}
                             disabled={!isPlayerTurn}
+                            hintTileId={hintTileId}
+                            handOrder={handOrder}
                           />
                         </View>
                         {gameMode === 'riichi' && dora.length > 0 && (
@@ -489,31 +643,21 @@ export default function GameScreen() {
               </View>
             </View>
 
-            {/* RIGHT COL: EAST (top) + Human panel (bottom) */}
+            {/* RIGHT COL: SOUTH (top) + WEST (bottom) */}
             <View style={[ls.panelCol, { width: PANEL_COL }]}>
               <CornerPanel
-                characterKey={aiRight.characterKey}
-                name={aiRight.name} score={aiRight.score}
-                seatWind={aiRight.seatWind} isActive={currentPlayer === 1}
-                isRiichi={aiRight.isRiichi} label={windLabel(aiRight.seatWind)}
+                characterKey={seatSouth.characterKey}
+                name={seatSouth.name} score={seatSouth.score}
+                seatWind={seatSouth.seatWind} isActive={currentPlayer === seatSouth.index}
+                isRiichi={seatSouth.isRiichi} label={windLabel(seatSouth.seatWind)}
               />
               <View style={{ flex: 1 }} />
-              {/* Human mini-panel */}
-              <Animated.View style={[
-                styles.panel,
-                { width: PANEL_COL - 4, borderColor: isPlayerTurn ? '#D4A840' : '#2A4A20' },
-              ]}>
-                <LinearGradient colors={['#0C1A0C','#152415'] as [string,string]} style={[styles.panelInner, { padding: 5 }]}>
-                  <View style={styles.panelWindRow}>
-                    <Text style={styles.panelWindSeat}>{windLabel(human.seatWind)}</Text>
-                    {human.isRiichi && <Text style={styles.panelRiichi}>R</Text>}
-                  </View>
-                  <Image source={CHAR[human.characterKey]} style={styles.panelAvatar} resizeMode="cover" />
-                  {isPlayerTurn && <View style={styles.humanActiveDot} />}
-                  <Text style={styles.panelName} numberOfLines={1}>{human.name}</Text>
-                  <Text style={styles.panelScore}>{human.score.toLocaleString()}</Text>
-                </LinearGradient>
-              </Animated.View>
+              <CornerPanel
+                characterKey={seatWest.characterKey}
+                name={seatWest.name} score={seatWest.score}
+                seatWind={seatWest.seatWind} isActive={currentPlayer === seatWest.index}
+                isRiichi={seatWest.isRiichi} label={windLabel(seatWest.seatWind)}
+              />
             </View>
           </View>
 
@@ -560,7 +704,7 @@ export default function GameScreen() {
             </Animated.View>
           )}
 
-          {/* ── Compact action bar (landscape) ── */}
+          {/* ── Action bar (landscape, mockup layout) ── */}
           {!isCallWindow && (
             <LinearGradient
               colors={['#050A05','#080E06'] as [string,string]}
@@ -568,13 +712,10 @@ export default function GameScreen() {
             >
               <View style={styles.actionGoldRule} />
               <View style={ls.actionRow}>
-                {/* Left: hand info */}
-                <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={ls.actionSide}>
-                  <Text style={styles.actionSidePanelTop}>HAND</Text>
-                  <Text style={ls.actionScore}>{human.score.toLocaleString()}</Text>
-                </LinearGradient>
+                {/* Left: Pair Dragons */}
+                <PairDragonsBadge />
 
-                {/* Center: buttons */}
+                {/* Center: Discard / Hint / Shuffle / Undo */}
                 <View style={styles.actionCenter}>
                   {isPlayerTurn ? (
                     <>
@@ -589,11 +730,23 @@ export default function GameScreen() {
                       <GlossyBtn
                         icon="↑" label="DISCARD" wide
                         disabled={selectedTileId === null || human.isRiichi || canTsumo}
-                        onPress={() => { humanDiscard(selectedTileId!); setSelectedTileId(null); }}
+                        onPress={() => { clearHint(); humanDiscard(selectedTileId!); setSelectedTileId(null); }}
                       />
-                      {selectedTileId === null && !canTsumo && (
-                        <Text style={styles.hintText}>tap a tile</Text>
-                      )}
+                      <PowerBtn
+                        icon="💡" label="HINT" count={hintCount}
+                        disabled={human.isRiichi}
+                        onPress={() => useHint()}
+                      />
+                      <PowerBtn
+                        icon="🔀" label="SHUFFLE" count={shuffleCount}
+                        disabled={human.isRiichi || human.hand.length < 2}
+                        onPress={() => useShuffle()}
+                      />
+                      <PowerBtn
+                        icon="↶" label="UNDO" count={undoCount}
+                        disabled={!undoSnapshot}
+                        onPress={() => { setSelectedTileId(null); useUndo(); }}
+                      />
                     </>
                   ) : (
                     <View style={styles.waitWrap}>
@@ -608,6 +761,7 @@ export default function GameScreen() {
                 {/* Right: wall count */}
                 <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={ls.actionSide}>
                   <Text style={styles.actionSidePanelTop}>WALL</Text>
+                  <Text style={styles.actionSidePanelTop}>REMAINING</Text>
                   <Text style={styles.actionWallCount}>{tilesLeft}</Text>
                 </LinearGradient>
               </View>
@@ -637,62 +791,31 @@ export default function GameScreen() {
   // PORTRAIT LAYOUT (original)
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <View style={[styles.root, { paddingTop: topPad }]}>
-      <AnimatedBackground />
+    <View style={styles.root}>
+      <GameDenBackdrop />
 
-      {/* ── TOP HUD ─────────────────────────────────────────────────────────── */}
-      <View style={styles.hud}>
-        <TouchableOpacity style={styles.hudMenuBtn} onPress={() => router.back()}>
-          <Text style={styles.hudMenuText}>☰</Text>
-        </TouchableOpacity>
-        <LinearGradient colors={['#1E1600','#2A1E00'] as [string,string]} style={styles.hudCoin}>
-          <Text style={styles.hudCoinIcon}>🪙</Text>
-          <Text style={styles.hudCoinText}>{coins.toLocaleString()}</Text>
-          <View style={styles.hudCoinPlus}><Text style={styles.hudCoinPlusText}>+</Text></View>
-        </LinearGradient>
-        <View style={{ flex: 1 }} />
-        <View style={styles.hudGiftBadge}>
-          <Text style={styles.hudGiftIcon}>🎁</Text>
-          <View style={styles.hudNotifDot}><Text style={styles.hudNotifText}>3</Text></View>
-        </View>
-        <View style={styles.hudStarBadge}>
-          <Text style={styles.hudStarIcon}>★</Text>
-          <Text style={styles.hudStarCount}>12</Text>
-        </View>
-        <TouchableOpacity style={styles.hudGear}>
-          <Text style={styles.hudGearText}>⚙</Text>
-        </TouchableOpacity>
-      </View>
+      <GameTopHud
+        coins={coins}
+        modeName={modeInfo.name}
+        paddingTop={topPad + 4}
+        onMenu={() => router.back()}
+        onSettings={() => router.push('/settings' as any)}
+      />
 
-      {/* ── PREMIUM TITLE ───────────────────────────────────────────────────── */}
-      <View style={styles.titleRow}>
-        <View style={styles.titleLine} />
-        <View style={styles.titleCenter}>
-          <Text style={styles.titleDragon}>🐉</Text>
-          <Text style={styles.titleText}>MAHJONG DEN</Text>
-          <View style={styles.titleSubLine}>
-            <View style={styles.titleDash} />
-            <Text style={styles.titleSub}>{modeInfo.name}</Text>
-            <View style={styles.titleDash} />
-          </View>
-        </View>
-        <View style={styles.titleLine} />
-      </View>
-
-      {/* ── OPPONENT TOP PANELS ──────────────────────────────────────────────── */}
+      {/* ── TOP-ROW SEAT PANELS: EAST (left) + SOUTH (right) ───────────────── */}
       <View style={styles.topPanelRow}>
         <CornerPanel
-          characterKey={aiTop.characterKey}
-          name={aiTop.name} score={aiTop.score}
-          seatWind={aiTop.seatWind} isActive={currentPlayer === 3}
-          isRiichi={aiTop.isRiichi} label={windLabel(aiTop.seatWind)}
+          characterKey={seatEast.characterKey}
+          name={seatEast.name} score={seatEast.score}
+          seatWind={seatEast.seatWind} isActive={currentPlayer === seatEast.index}
+          isRiichi={seatEast.isRiichi} label={windLabel(seatEast.seatWind)}
         />
         <View style={styles.topPanelSpacer} />
         <CornerPanel
-          characterKey={aiRight.characterKey}
-          name={aiRight.name} score={aiRight.score}
-          seatWind={aiRight.seatWind} isActive={currentPlayer === 1}
-          isRiichi={aiRight.isRiichi} label={windLabel(aiRight.seatWind)}
+          characterKey={seatSouth.characterKey}
+          name={seatSouth.name} score={seatSouth.score}
+          seatWind={seatSouth.seatWind} isActive={currentPlayer === seatSouth.index}
+          isRiichi={seatSouth.isRiichi} label={windLabel(seatSouth.seatWind)}
         />
       </View>
 
@@ -705,7 +828,7 @@ export default function GameScreen() {
           <View style={styles.tableInnerLip}>
             {/* Felt surface */}
             <LinearGradient
-              colors={['#0E3C1E','#0A2E16','#07200F'] as [string,string,string]}
+              colors={['#0F4A28', '#0A3220', '#061810'] as [string, string, string]}
               style={styles.tableFelt}
             >
               {/* Felt texture inner glow */}
@@ -725,6 +848,7 @@ export default function GameScreen() {
 
                 {/* Center discard area */}
                 <View style={styles.centerArea}>
+                  <WindCompass />
                   {/* North discards */}
                   <View style={styles.discardTop}>
                     <DiscardZone discards={aiTop.discards} cols={5} minRows={1} />
@@ -734,7 +858,7 @@ export default function GameScreen() {
                     <View style={styles.discardSide}>
                       <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
                     </View>
-                    <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} />
+                    <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                     <View style={styles.discardSide}>
                       <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
                     </View>
@@ -768,6 +892,8 @@ export default function GameScreen() {
                   onSelectTile={handleSelectTile}
                   isRiichi={human.isRiichi}
                   disabled={!isPlayerTurn}
+                  hintTileId={hintTileId}
+                  handOrder={handOrder}
                 />
                 {/* Dora indicators (Riichi) */}
                 {gameMode === 'riichi' && dora.length > 0 && (
@@ -783,30 +909,21 @@ export default function GameScreen() {
         </View>
       </View>
 
-      {/* ── BOTTOM PANELS ────────────────────────────────────────────────────── */}
+      {/* ── BOTTOM-ROW SEAT PANELS: NORTH (left) + WEST (right) ────────────── */}
       <View style={styles.bottomPanelRow}>
         <CornerPanel
-          characterKey={aiLeft.characterKey}
-          name={aiLeft.name} score={aiLeft.score}
-          seatWind={aiLeft.seatWind} isActive={currentPlayer === 2}
-          isRiichi={aiLeft.isRiichi} label={windLabel(aiLeft.seatWind)}
+          characterKey={seatNorth.characterKey}
+          name={seatNorth.name} score={seatNorth.score}
+          seatWind={seatNorth.seatWind} isActive={currentPlayer === seatNorth.index}
+          isRiichi={seatNorth.isRiichi} label={windLabel(seatNorth.seatWind)}
         />
         <View style={{ flex: 1 }} />
-        {/* Human "You" panel */}
-        <Animated.View style={[
-          styles.panel, styles.humanPanel,
-          { borderColor: isPlayerTurn ? '#D4A840' : '#2A4A20' },
-        ]}>
-          <LinearGradient colors={['#0C1A0C','#152415'] as [string,string]} style={styles.humanPanelInner}>
-            <Image source={CHAR[human.characterKey]} style={styles.panelAvatar} resizeMode="cover" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.panelWindSeat}>{windLabel(human.seatWind)}{human.isRiichi ? '  RIICHI' : ''}</Text>
-              <Text style={styles.panelName}>{human.name}</Text>
-              <Text style={styles.panelScore}>{human.score.toLocaleString()}</Text>
-            </View>
-            {isPlayerTurn && <View style={styles.humanActiveDot} />}
-          </LinearGradient>
-        </Animated.View>
+        <CornerPanel
+          characterKey={seatWest.characterKey}
+          name={seatWest.name} score={seatWest.score}
+          seatWind={seatWest.seatWind} isActive={currentPlayer === seatWest.index}
+          isRiichi={seatWest.isRiichi} label={windLabel(seatWest.seatWind)}
+        />
       </View>
 
       {/* ── CALL WINDOW BANNER ──────────────────────────────────────────────── */}
@@ -858,27 +975,19 @@ export default function GameScreen() {
         </Animated.View>
       )}
 
-      {/* ── BOTTOM ACTION BAR ─────────────────────────────────────────────────── */}
+      {/* ── BOTTOM ACTION BAR (mockup layout) ────────────────────────────────── */}
       {!isCallWindow && (
         <LinearGradient
           colors={['#050A05','#080E06'] as [string,string]}
           style={[styles.actionBar, { paddingBottom: Math.max(botPad, 8) }]}
         >
-          {/* Top gold rule */}
           <View style={styles.actionGoldRule} />
 
           <View style={styles.actionBarRow}>
-            {/* Left: Hand / round info */}
-            <LinearGradient colors={['#100C00','#1C1600'] as [string,string]} style={styles.actionSidePanel}>
-              <Text style={styles.actionSidePanelTop}>YOUR</Text>
-              <Text style={styles.actionSidePanelMain}>HAND</Text>
-              <View style={styles.actionSideCoin}>
-                <Text style={styles.actionSideCoinIcon}>🪙</Text>
-                <Text style={styles.actionSideCoinAmt}>{human.score.toLocaleString()}</Text>
-              </View>
-            </LinearGradient>
+            {/* Left: Pair Dragons cost badge */}
+            <PairDragonsBadge />
 
-            {/* Center action buttons */}
+            {/* Center: Discard / Hint / Shuffle / Undo (or call-time actions) */}
             <View style={styles.actionCenter}>
               {isPlayerTurn ? (
                 <>
@@ -893,11 +1002,23 @@ export default function GameScreen() {
                   <GlossyBtn
                     icon="↑" label="DISCARD" wide
                     disabled={selectedTileId === null || human.isRiichi || canTsumo}
-                    onPress={() => { humanDiscard(selectedTileId!); setSelectedTileId(null); }}
+                    onPress={() => { clearHint(); humanDiscard(selectedTileId!); setSelectedTileId(null); }}
                   />
-                  {selectedTileId === null && !canTsumo && (
-                    <Text style={styles.hintText}>tap a tile</Text>
-                  )}
+                  <PowerBtn
+                    icon="💡" label="HINT" count={hintCount}
+                    disabled={human.isRiichi}
+                    onPress={() => useHint()}
+                  />
+                  <PowerBtn
+                    icon="🔀" label="SHUFFLE" count={shuffleCount}
+                    disabled={human.isRiichi || human.hand.length < 2}
+                    onPress={() => useShuffle()}
+                  />
+                  <PowerBtn
+                    icon="↶" label="UNDO" count={undoCount}
+                    disabled={!undoSnapshot}
+                    onPress={() => { setSelectedTileId(null); useUndo(); }}
+                  />
                 </>
               ) : (
                 <View style={styles.waitWrap}>
@@ -914,7 +1035,6 @@ export default function GameScreen() {
               <Text style={styles.actionSidePanelTop}>WALL</Text>
               <Text style={styles.actionSidePanelTop}>REMAINING</Text>
               <Text style={styles.actionWallCount}>{tilesLeft}</Text>
-              {/* Mini tile stack icon */}
               <View style={styles.miniTileStack}>
                 <View style={[styles.miniTile, { bottom: 4, left: 4 }]} />
                 <View style={[styles.miniTile, { bottom: 2, left: 2 }]} />
@@ -944,9 +1064,83 @@ export default function GameScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A0804' },
+  root: { flex: 1, backgroundColor: '#060402' },
 
-  // HUD
+  mockHud: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(4,3,2,0.88)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(120,90,40,0.45)',
+  },
+  hamburger: { gap: 3, paddingVertical: 2, paddingHorizontal: 2 },
+  hamLine: { width: 14, height: 2, borderRadius: 1, backgroundColor: '#C8B090' },
+  mockCoinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(140,100,40,0.55)',
+  },
+  mockCoinDisc: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#C9A040',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#6A5010',
+  },
+  mockCoinSym: { color: '#1A1206', fontSize: 10, fontWeight: '900' },
+  mockCoinAmt: { color: '#E8D8A8', fontWeight: '900', fontSize: 13, minWidth: 44 },
+  mockCoinPlus: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#1E4A18',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A6A22',
+  },
+  mockCoinPlusTxt: { color: '#7AE060', fontWeight: '900', fontSize: 14, lineHeight: 18 },
+  mockHudCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mockDragonSeal: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(200,160,60,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,168,64,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  mockDragonIcon: { fontSize: 15 },
+  mockBrand: {
+    color: '#E8C860',
+    fontWeight: '800',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  mockBrandSub: {
+    color: 'rgba(180,160,120,0.75)',
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginTop: 1,
+  },
+
+  // HUD (legacy bits still used by gift/star/gear)
   hud: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 10, paddingVertical: 6,
@@ -1004,15 +1198,31 @@ const styles = StyleSheet.create({
 
   // Corner panels
   panel: {
-    width: PANEL_W, borderRadius: 10,
+    width: PANEL_W,
+    borderRadius: 12,
     borderWidth: 1.5,
     overflow: 'visible',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.55,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  panelCornerOrnament: {
-    position: 'absolute', width: 8, height: 8,
-    borderColor: '#D4A840', zIndex: 2,
+  panelWoodBezel: {
+    borderRadius: 11,
+    padding: 3,
+    backgroundColor: '#3E2614',
+    borderWidth: 1,
+    borderColor: 'rgba(80,50,20,0.9)',
   },
-  panelInner: { borderRadius: 8.5, padding: 6, alignItems: 'center', gap: 2 },
+  panelCorJewel: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderColor: '#D4A840',
+    zIndex: 2,
+  },
+  panelInner: { borderRadius: 8, padding: 7, alignItems: 'center', gap: 3 },
   panelWindRow: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 6, paddingVertical: 2,
@@ -1023,9 +1233,12 @@ const styles = StyleSheet.create({
   panelRiichi: { color: '#FF6060', fontSize: 7, fontWeight: '900', letterSpacing: 0.5 },
   panelAvatarWrap: { position: 'relative' },
   panelAvatar: {
-    width: 46, height: 46, borderRadius: 23,
-    borderWidth: 2, borderColor: 'rgba(212,168,64,0.5)',
-    marginVertical: 2,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'rgba(212,168,64,0.55)',
+    marginVertical: 3,
   },
   panelActiveRing: {
     position: 'absolute', top: -3, left: -3, right: -3, bottom: -3,
@@ -1058,9 +1271,15 @@ const styles = StyleSheet.create({
   // Table structure
   tableWood: {
     flex: 1, marginHorizontal: 4,
-    borderRadius: 18, padding: 8,
-    backgroundColor: '#2E1606',
-    boxShadow: 'inset 0 4px 8px rgba(0,0,0,0.6), 0 2px 12px rgba(0,0,0,0.8)',
+    borderRadius: 20, padding: 9,
+    backgroundColor: '#1E0C04',
+    borderWidth: 1,
+    borderColor: 'rgba(60,30,12,0.95)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.65,
+    shadowRadius: 12,
+    elevation: 14,
   } as any,
   tableGoldTrim: {
     flex: 1, borderRadius: 12, padding: 2.5,
@@ -1140,21 +1359,61 @@ const styles = StyleSheet.create({
   discardRow: { flexDirection: 'row', gap: 2 },
   discardGhost: { width: 22, height: 30, opacity: 0 },
 
-  // Medallion
-  medallionOuter: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: '#C8A028', padding: 3,
-    alignSelf: 'center',
-    boxShadow: '0 0 16px rgba(200,160,40,0.45)',
-  } as any,
-  medallionBody: {
-    flex: 1, borderRadius: 37, alignItems: 'center', justifyContent: 'center', gap: 1,
-    padding: 6,
+  // Wind compass markers (W/S/E/N around the medallion)
+  compassMark: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12,10,6,0.88)',
+    borderWidth: 1.5,
+    borderColor: '#C9A040',
+    zIndex: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  medallionLine1: { color: '#D4A840', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  medallionHRule: { width: 36, height: 1, backgroundColor: 'rgba(200,160,40,0.4)' },
-  medallionLabel: { color: '#7A6030', fontSize: 8, letterSpacing: 1.5, fontWeight: '600' },
-  medallionCount: { color: '#F0E0A0', fontSize: 19, fontWeight: '900', lineHeight: 22 },
+  compassText: {
+    color: '#F0D878',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  compassN: { top: 2, left: '50%', transform: [{ translateX: -13 }] } as any,
+  compassS: { bottom: 2, left: '50%', transform: [{ translateX: -13 }] } as any,
+  compassE: { right: 2, top: '50%', transform: [{ translateY: -13 }] } as any,
+  compassW: { left: 2, top: '50%', transform: [{ translateY: -13 }] } as any,
+
+  // Medallion (gold rim + black face)
+  medallionOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    padding: 4,
+    alignSelf: 'center',
+    shadowColor: '#D4A850',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  medallionBody: {
+    flex: 1,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+  },
+  medallionLine1: { color: '#E8C870', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  medallionHRule: { width: 44, height: 1, backgroundColor: 'rgba(200,160,64,0.35)' },
+  medallionRoundLabel: { color: '#9A8048', fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
+  medallionCount: { color: '#F8ECD0', fontSize: 22, fontWeight: '900', lineHeight: 26 },
 
   // Hand on felt
   handOnFelt: { paddingTop: 4 },
@@ -1209,9 +1468,15 @@ const styles = StyleSheet.create({
 
   // Glossy btn
   glossyBtn: {
-    borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, minWidth: 58, position: 'relative',
-    paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center', gap: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    minWidth: 62,
+    position: 'relative',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 2,
   },
   glossyBtnWide: { minWidth: 76 },
   glossySheen: {
@@ -1226,6 +1491,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#C8A028', alignItems: 'center', justifyContent: 'center',
   },
   glossyBadgeText: { color: '#070E07', fontSize: 8, fontWeight: '900' },
+
+  // Power-up buttons (HINT / SHUFFLE / UNDO)
+  powerBtn: {
+    minWidth: 64,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#9A7828',
+    alignItems: 'center',
+    position: 'relative',
+    gap: 2,
+  },
+  powerIcon:  { color: '#F0E0A0', fontSize: 18, lineHeight: 20 },
+  powerLabel: { color: '#C8A028', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  powerBadge: {
+    position: 'absolute', top: -6, right: -6,
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: '#C8A028', borderWidth: 1.5, borderColor: '#070E07',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  powerBadgeText: { color: '#070E07', fontSize: 10, fontWeight: '900' },
+
+  // Pair Dragons cost badge
+  pairDragonsBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 8, paddingVertical: 6,
+    borderRadius: 14, borderWidth: 1, borderColor: '#3A2A06',
+  },
+  pairDragonsCoin: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#C8A028', borderWidth: 1, borderColor: '#7A5A10',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pairDragonsCoinText: { color: '#070E07', fontSize: 13, fontWeight: '900' },
+  pairDragonsTitle: { color: '#C8A028', fontSize: 8, fontWeight: '900', letterSpacing: 1, lineHeight: 10 },
+  pairDragonsCost:  { color: '#E0C870', fontSize: 11, fontWeight: '900', marginTop: 2 },
 
   // Discard popup
   popupOverlay: {
@@ -1249,7 +1551,7 @@ const styles = StyleSheet.create({
 
 // ─── Landscape-specific styles ─────────────────────────────────────────────────
 const ls = StyleSheet.create({
-  root: { backgroundColor: '#0A0804', overflow: 'hidden' },
+  root: { backgroundColor: '#060402', overflow: 'hidden' },
 
   // Compact HUD
   hud: {
@@ -1270,9 +1572,15 @@ const ls = StyleSheet.create({
   // Table
   tableWrap: { flex: 1 },
   tableWood: {
-    flex: 1, borderRadius: 14, padding: 6,
-    backgroundColor: '#2E1606',
-    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.6)',
+    flex: 1, borderRadius: 16, padding: 7,
+    backgroundColor: '#1E0C04',
+    borderWidth: 1,
+    borderColor: 'rgba(60,30,12,0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    elevation: 10,
   } as any,
   tableGold: { flex: 1, borderRadius: 10, padding: 2, backgroundColor: '#C8A028' },
   tableInnerLip: { flex: 1, borderRadius: 8, padding: 1, backgroundColor: '#1A0A02' },
