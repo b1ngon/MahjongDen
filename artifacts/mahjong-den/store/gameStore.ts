@@ -51,6 +51,17 @@ export interface RoundResult {
   loserIndex?: number;
 }
 
+export interface UndoSnapshot {
+  players: PlayerState[];
+  wall: Tile[];
+  currentPlayer: number;
+  phase: GamePhase;
+  pendingDiscard: { tile: Tile; playerIndex: number } | null;
+  callOptions: CallOptions;
+  tilesLeft: number;
+  dora: Tile[];
+}
+
 export interface GameState {
   gameMode: GameMode;
   phase: GamePhase;
@@ -64,6 +75,16 @@ export interface GameState {
   callOptions: CallOptions;
   pendingDiscard: { tile: Tile; playerIndex: number } | null;
   result: RoundResult | null;
+
+  // Power-ups for the human player
+  hintTileId: number | null;
+  hintCount: number;
+  shuffleCount: number;
+  undoCount: number;
+  /** Custom render order for the human's hand (tile ids); null = default sort */
+  handOrder: number[] | null;
+  /** Snapshot taken just before the most recent humanDiscard / humanRiichi */
+  undoSnapshot: UndoSnapshot | null;
 }
 
 interface GameActions {
@@ -78,16 +99,26 @@ interface GameActions {
   humanChi: (tileIds: [number, number]) => void;
   humanPass: () => void;
   aiProcessTurn: (playerIndex: number) => void;
+
+  // Power-ups
+  useHint: () => void;
+  clearHint: () => void;
+  useShuffle: () => void;
+  useUndo: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLAYER_DEFS = [
-  { name: 'You',    characterKey: 'luna',   seatWind: 1, isDealer: true  },
-  { name: 'Ryuu',   characterKey: 'ryuu',   seatWind: 2, isDealer: false },
-  { name: 'Kira',   characterKey: 'kira',   seatWind: 3, isDealer: false },
-  { name: 'Sensei', characterKey: 'sensei', seatWind: 4, isDealer: false },
+  { name: 'Barry',   characterKey: 'barry',   seatWind: 1, isDealer: true  },
+  { name: 'Stephan', characterKey: 'stephan', seatWind: 2, isDealer: false },
+  { name: 'Tiffany', characterKey: 'tiffany', seatWind: 3, isDealer: false },
+  { name: 'Sandra',  characterKey: 'sandra',  seatWind: 4, isDealer: false },
 ];
+
+const DEFAULT_HINT_COUNT    = 3;
+const DEFAULT_SHUFFLE_COUNT = 2;
+const DEFAULT_UNDO_COUNT    = 2;
 
 const EMPTY_CALL: CallOptions = { canRon: false, canPon: false, canKan: false, chiOptions: [] };
 
@@ -173,6 +204,13 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
   pendingDiscard: null,
   result: null,
 
+  hintTileId:    null,
+  hintCount:     DEFAULT_HINT_COUNT,
+  shuffleCount:  DEFAULT_SHUFFLE_COUNT,
+  undoCount:     DEFAULT_UNDO_COUNT,
+  handOrder:     null,
+  undoSnapshot:  null,
+
   // ──────────────────────────────────────────────────────────── setGameMode
   setGameMode(mode: GameMode) {
     set({ gameMode: mode });
@@ -203,6 +241,12 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       players, wall, dora: [dora], tilesLeft: wall.length,
       currentPlayer: 0, dealer: 0, roundWind: 1,
       pendingDiscard: null, result: null, callOptions: EMPTY_CALL,
+      hintTileId: null,
+      hintCount:    DEFAULT_HINT_COUNT,
+      shuffleCount: DEFAULT_SHUFFLE_COUNT,
+      undoCount:    DEFAULT_UNDO_COUNT,
+      handOrder:    null,
+      undoSnapshot: null,
     });
   },
 
@@ -227,6 +271,13 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     const discarded = allTiles.find(t => t.id === tileId);
     if (!discarded) return;
 
+    const snapshot: UndoSnapshot = {
+      players: s.players.map(p => ({ ...p })),
+      wall: s.wall, currentPlayer: s.currentPlayer, phase: s.phase,
+      pendingDiscard: s.pendingDiscard, callOptions: s.callOptions,
+      tilesLeft: s.tilesLeft, dora: s.dora,
+    };
+
     const newHand = sortHand(allTiles.filter(t => t.id !== tileId));
     let players = s.players.map((p, i) =>
       i === 0 ? { ...p, hand: newHand, drawnTile: null, discards: [...p.discards, discarded] } : p,
@@ -243,7 +294,11 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       }
     }
 
-    set({ players, phase: 'ai_turn', currentPlayer: 1, pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL });
+    set({
+      players, phase: 'ai_turn', currentPlayer: 1,
+      pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL,
+      hintTileId: null, handOrder: null, undoSnapshot: snapshot,
+    });
   },
 
   // ──────────────────────────────────────────────────────────── humanRiichi
@@ -257,6 +312,13 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     if (!discarded) return;
     const newHand = sortHand(allTiles.filter(t => t.id !== tileId));
     if (!isTenpai(newHand, human.melds)) return;
+
+    const snapshot: UndoSnapshot = {
+      players: s.players.map(p => ({ ...p })),
+      wall: s.wall, currentPlayer: s.currentPlayer, phase: s.phase,
+      pendingDiscard: s.pendingDiscard, callOptions: s.callOptions,
+      tilesLeft: s.tilesLeft, dora: s.dora,
+    };
 
     let players = s.players.map((p, i) =>
       i === 0 ? { ...p, hand: newHand, drawnTile: null, discards: [...p.discards, discarded], isRiichi: true, score: p.score - 1000 } : p,
@@ -273,7 +335,11 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       }
     }
 
-    set({ players, phase: 'ai_turn', currentPlayer: 1, pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL });
+    set({
+      players, phase: 'ai_turn', currentPlayer: 1,
+      pendingDiscard: { tile: discarded, playerIndex: 0 }, callOptions: EMPTY_CALL,
+      hintTileId: null, handOrder: null, undoSnapshot: snapshot,
+    });
   },
 
   // ──────────────────────────────────────────────────────────── humanRon
@@ -432,6 +498,59 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     );
 
     set(aiDiscardResult(workPlayers, workWall, discardTile, playerIndex, s.roundWind, gameMode));
+  },
+
+  // ──────────────────────────────────────────────────────────── useHint
+  useHint() {
+    const s = get();
+    if (s.hintCount <= 0) return;
+    if (s.phase !== 'player_turn' || s.currentPlayer !== 0) return;
+    const human = s.players[0];
+    const fullHand = human.drawnTile ? [...human.hand, human.drawnTile] : human.hand;
+    if (fullHand.length === 0) return;
+    const suggestion = aiChooseDiscard(fullHand, human.melds);
+    set({ hintTileId: suggestion.id, hintCount: s.hintCount - 1 });
+  },
+
+  // ──────────────────────────────────────────────────────────── clearHint
+  clearHint() {
+    set({ hintTileId: null });
+  },
+
+  // ──────────────────────────────────────────────────────────── useShuffle
+  useShuffle() {
+    const s = get();
+    if (s.shuffleCount <= 0) return;
+    const human = s.players[0];
+    const ids = human.hand.map(t => t.id);
+    if (ids.length < 2) return;
+    const shuffled = [...ids];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    set({ handOrder: shuffled, shuffleCount: s.shuffleCount - 1 });
+  },
+
+  // ──────────────────────────────────────────────────────────── useUndo
+  useUndo() {
+    const s = get();
+    if (s.undoCount <= 0 || !s.undoSnapshot) return;
+    const snap = s.undoSnapshot;
+    set({
+      players: snap.players,
+      wall: snap.wall,
+      currentPlayer: snap.currentPlayer,
+      phase: snap.phase,
+      pendingDiscard: snap.pendingDiscard,
+      callOptions: snap.callOptions,
+      tilesLeft: snap.tilesLeft,
+      dora: snap.dora,
+      undoCount: s.undoCount - 1,
+      undoSnapshot: null,
+      hintTileId: null,
+      handOrder: null,
+    });
   },
 }));
 

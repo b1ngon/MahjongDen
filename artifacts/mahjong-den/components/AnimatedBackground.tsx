@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Animated, StyleSheet, Dimensions } from 'react-native';
+import { View, Animated, StyleSheet, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ROOM_BACKGROUND } from '../constants/characters';
 
 const { width, height } = Dimensions.get('window');
 
@@ -82,6 +83,16 @@ export default function AnimatedBackground() {
         colors={['#120A04', '#0E0C05', '#0A0E06'] as [string,string,string]}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Optional 3D room render — drop a file at assets/images/bg_room.png and
+          flip ROOM_BACKGROUND in constants/characters.ts to render it here */}
+      {ROOM_BACKGROUND && (
+        <Image
+          source={ROOM_BACKGROUND}
+          style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
+          resizeMode="cover"
+        />
+      )}
 
       {/* Fireplace glow — lower center warm */}
       <View

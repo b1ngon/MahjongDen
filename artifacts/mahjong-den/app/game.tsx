@@ -29,6 +29,18 @@ const PANEL_W = Math.min(SW * 0.27, 100);
 
 const TITLE_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
+/** Perspective tilt + floor shadow to read closer to the 3D table mockup (RN transforms only). */
+function Table3DShell({ compact, children }: { compact?: boolean; children: React.ReactNode }) {
+  return (
+    <View style={[styles.table3dRoot, compact && styles.table3dRootCompact]}>
+      <View style={[styles.table3dFloorShadow, compact && styles.table3dFloorShadowCompact]} pointerEvents="none" />
+      <View style={[styles.table3dTilt, compact ? styles.table3dTiltCompact : styles.table3dTiltPortrait]}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 /** Top bar aligned with the 3D mockup: menu · coins · centered logo · gift · stars · settings */
 function GameTopHud({
   coins,
@@ -45,10 +57,11 @@ function GameTopHud({
   onMenu: () => void;
   onSettings: () => void;
 }) {
-  const logoSize = compact ? 11 : 13;
-  const subSize = compact ? 7 : 8;
+  const logoSize = compact ? 11 : 14;
+  const subSize = compact ? 7 : 9;
+  const modeLine = modeName.trim().toUpperCase();
   return (
-    <View style={[styles.mockHud, { paddingTop }]}>
+    <View style={[styles.mockHud, { paddingTop }, compact && styles.mockHudCompact]}>
       <TouchableOpacity style={styles.hudMenuBtn} onPress={onMenu}>
         <View style={styles.hamburger}>
           <View style={styles.hamLine} />
@@ -66,11 +79,25 @@ function GameTopHud({
         </TouchableOpacity>
       </LinearGradient>
       <View style={styles.mockHudCenter}>
-        <View style={styles.mockDragonSeal}>
+        <View style={[styles.mockDragonSeal, compact && styles.mockDragonSealCompact]}>
           <Text style={styles.mockDragonIcon}>🐉</Text>
         </View>
-        <Text style={[styles.mockBrand, { fontSize: logoSize, fontFamily: TITLE_FONT }]}>MAHJONG DEN</Text>
-        <Text style={[styles.mockBrandSub, compact && { fontSize: subSize }]}>{modeName}</Text>
+        <Text
+          style={[styles.mockBrand, { fontSize: logoSize, fontFamily: TITLE_FONT }, compact && styles.mockBrandCompact]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.55}
+        >
+          MAHJONG DEN
+        </Text>
+        <Text
+          style={[styles.mockBrandSub, { fontSize: subSize, fontFamily: TITLE_FONT }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.65}
+        >
+          {modeLine}
+        </Text>
       </View>
       <View style={styles.hudGiftBadge}>
         <Text style={styles.hudGiftIcon}>🎁</Text>
@@ -97,7 +124,18 @@ const CHAR: Record<string, any> = {
   sensei: require('../assets/images/char_sensei.png'),
 };
 
-// ─── Ornate corner portrait panel ─────────────────────────────────────────────
+// ─── Player medallion (premium collectible-coin style avatar) ────────────────
+//
+// Replaces the boxy corner panel with a circular medallion + glass info plate.
+// Visual composition:
+//   • Outer gold rim     (LinearGradient #E8C870 → #7A5A10)
+//   • Inner walnut bezel (LinearGradient #2A1810 → #1A0E08)
+//   • Round avatar image, masked
+//   • Wind chip (small gold pill on the medallion edge)
+//   • Glass plate below: name + score
+//   • Active player: pulsing soft gold halo behind the medallion
+//
+// All callbacks and turn/active logic are unchanged — pulse loop is the same.
 function CornerPanel({
   characterKey, name, score, seatWind, isActive, isRiichi, label,
 }: {
@@ -117,42 +155,59 @@ function CornerPanel({
     }
   }, [isActive]);
 
-  const borderColor = pulse.interpolate({
-    inputRange: [0, 1], outputRange: ['#3A5A2A', '#D4A840'],
-  });
-  const shadowOpacity = pulse.interpolate({
-    inputRange: [0, 1], outputRange: [0, 0.8],
-  });
+  const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.0, 0.65] });
+  const haloScale   = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+
+  const windText = label ?? WIND_CHARS[seatWind - 1];
 
   return (
-    <Animated.View style={[styles.panel, { borderColor }]}>
-      <View style={styles.panelWoodBezel}>
-        <View style={[styles.panelCorJewel, { top: 2, left: 2, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 3 }]} />
-        <View style={[styles.panelCorJewel, { top: 2, right: 2, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 3 }]} />
-        <View style={[styles.panelCorJewel, { bottom: 2, left: 2, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 3 }]} />
-        <View style={[styles.panelCorJewel, { bottom: 2, right: 2, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 3 }]} />
+    <View style={styles.medallionRoot}>
+      {/* Soft pulsing halo behind the medallion when active */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.medallionHalo,
+          { opacity: haloOpacity, transform: [{ scale: haloScale }] },
+        ]}
+      />
+
+      {/* Gold outer rim */}
+      <LinearGradient
+        colors={['#F4D87A', '#C9A040', '#7A5A18'] as [string, string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.medallionGoldRim, isActive && styles.medallionGoldRimActive]}
+      >
+        {/* Walnut bezel */}
         <LinearGradient
-          colors={['#1C1008', '#2A1810', '#120804'] as [string, string, string]}
-          style={styles.panelInner}
+          colors={['#3A2410', '#1E1208', '#120804'] as [string, string, string]}
+          style={styles.medallionWalnutBezel}
         >
-        {/* Wind seat label */}
-        <View style={styles.panelWindRow}>
-          <Text style={styles.panelWindSeat}>{label ?? WIND_CHARS[seatWind - 1]}</Text>
-          {isRiichi && <Text style={styles.panelRiichi}>RIICHI</Text>}
-        </View>
-        {/* Avatar */}
-        <View style={styles.panelAvatarWrap}>
-          <Image source={CHAR[characterKey]} style={styles.panelAvatar} resizeMode="cover" />
-          {isActive && (
-            <Animated.View style={[styles.panelActiveRing, { opacity: shadowOpacity }]} />
-          )}
-        </View>
-        {/* Name & score */}
-        <Text style={styles.panelName} numberOfLines={1}>{name}</Text>
-        <Text style={styles.panelScore}>{score.toLocaleString()}</Text>
+          {/* Avatar */}
+          <Image source={CHAR[characterKey]} style={styles.medallionAvatar} resizeMode="cover" />
+          {/* Subtle inner shadow vignette to make the avatar feel embossed */}
+          <View pointerEvents="none" style={styles.medallionInnerShade} />
+        </LinearGradient>
       </LinearGradient>
+
+      {/* Wind chip on the upper-left of the medallion */}
+      <View style={styles.medallionWindChip}>
+        <Text style={styles.medallionWindText}>{windText}</Text>
       </View>
-    </Animated.View>
+
+      {/* Riichi flag on the upper-right */}
+      {isRiichi && (
+        <View style={styles.medallionRiichiChip}>
+          <Text style={styles.medallionRiichiText}>RIICHI</Text>
+        </View>
+      )}
+
+      {/* Glass info plate beneath the medallion */}
+      <View style={styles.medallionPlate}>
+        <Text style={styles.medallionName} numberOfLines={1}>{name}</Text>
+        <Text style={styles.medallionScore}>{score.toLocaleString()}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -200,23 +255,97 @@ function TileWallCol({ count, melds }: { count: number; melds?: any[] }) {
   );
 }
 
-// ─── Discard grid zone ────────────────────────────────────────────────────────
-function DiscardZone({ discards, cols, minRows = 2 }: { discards: Tile[]; cols: number; minRows?: number }) {
-  const visible = discards.slice(-cols * 4);
-  const rows: Tile[][] = [];
-  for (let i = 0; i < visible.length; i += cols) rows.push(visible.slice(i, i + cols));
-  while (rows.length < minRows) rows.push([]);
+type DiscardSeat = 'north' | 'south' | 'east' | 'west';
+
+function discardSeatRotateDeg(seat: DiscardSeat): number {
+  if (seat === 'south') return 0;
+  if (seat === 'north') return 180;
+  // West / East: face in toward table center from viewer's left / right
+  if (seat === 'west') return 90;
+  return -90;
+}
+
+function DiscardTileFace({ tile, seat }: { tile: Tile; seat: DiscardSeat }) {
+  const deg = discardSeatRotateDeg(seat);
+  const sideways = seat === 'west' || seat === 'east';
+  if (sideways) {
+    return (
+      <View style={styles.discardTileWrapSide}>
+        <MahjongTile tile={tile} tiny tableRotateDeg={deg} />
+      </View>
+    );
+  }
+  return <MahjongTile tile={tile} tiny tableRotateDeg={deg} />;
+}
+
+// ─── Discard zone: presentation only (tile order / slice unchanged) ────────────
+function DiscardZone({
+  discards,
+  cols,
+  minRows = 2,
+  seat,
+}: {
+  discards: Tile[];
+  cols: number;
+  minRows?: number;
+  seat: DiscardSeat;
+}) {
+  const slotCount = cols * 4;
+  const visible = discards.slice(-slotCount);
+  const ghostStyle =
+    seat === 'west' || seat === 'east' ? styles.discardGhostSide : styles.discardGhost;
+
+  if (seat === 'north' || seat === 'south') {
+    const rows: Tile[][] = [];
+    for (let i = 0; i < visible.length; i += cols) rows.push(visible.slice(i, i + cols));
+    while (rows.length < minRows) rows.push([]);
+    return (
+      <View style={styles.discardZone}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={styles.discardRow}>
+            {row.length === 0
+              ? Array.from({ length: cols }).map((_, gi) => (
+                  <View key={`g${gi}`} style={ghostStyle} />
+                ))
+              : row.map(t => <DiscardTileFace key={t.id} tile={t} seat={seat} />)}
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  // East / West: vertical stacks (fill one column up to 4, then the next) — same order as row-major scan
+  if (visible.length === 0) {
+    return (
+      <View style={styles.discardZoneSide}>
+        {Array.from({ length: cols }, (_, si) => (
+          <View key={si} style={styles.discardCol}>
+            {Array.from({ length: minRows }).map((_, gi) => (
+              <View key={gi} style={ghostStyle} />
+            ))}
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  const maxPerStack = 4;
+  const stacks: Tile[][] = Array.from({ length: cols }, () => []);
+  visible.forEach((t, i) => {
+    const s = Math.floor(i / maxPerStack);
+    if (s < cols) stacks[s].push(t);
+  });
 
   return (
-    <View style={styles.discardZone}>
-      {rows.map((row, ri) => (
-        <View key={ri} style={styles.discardRow}>
-          {row.map(t => <MahjongTile key={t.id} tile={t} tiny />)}
-          {Array.from({ length: Math.max(0, cols - row.length) }).map((_, gi) => (
-            <View key={`g${gi}`} style={styles.discardGhost} />
-          ))}
-        </View>
-      ))}
+    <View style={styles.discardZoneSide}>
+      {stacks.map((stack, si) => {
+        if (stack.length === 0) return null;
+        return (
+          <View key={si} style={styles.discardCol}>
+            {stack.map(t => <DiscardTileFace key={t.id} tile={t} seat={seat} />)}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -572,6 +701,7 @@ export default function GameScreen() {
 
             {/* CENTER: The table */}
             <View style={ls.tableWrap}>
+              <Table3DShell compact>
               {/* Walnut border */}
               <View style={ls.tableWood}>
                 {/* Gold trim */}
@@ -597,19 +727,19 @@ export default function GameScreen() {
                         </View>
                         <View style={ls.centerArea}>
                           <View style={styles.discardTop}>
-                            <DiscardZone discards={aiTop.discards} cols={6} minRows={1} />
+                            <DiscardZone discards={aiTop.discards} cols={6} minRows={1} seat="north" />
                           </View>
                           <View style={styles.discardMidRow}>
                             <View style={styles.discardSide}>
-                              <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
+                              <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} seat="west" />
                             </View>
                             <MedallionWithCompass roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                             <View style={styles.discardSide}>
-                              <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
+                              <DiscardZone discards={aiRight.discards} cols={3} minRows={2} seat="east" />
                             </View>
                           </View>
                           <View style={styles.discardBottom}>
-                            <DiscardZone discards={human.discards} cols={6} minRows={1} />
+                            <DiscardZone discards={human.discards} cols={6} minRows={1} seat="south" />
                           </View>
                         </View>
                         <View style={ls.sideWall}>
@@ -650,6 +780,7 @@ export default function GameScreen() {
                   </View>
                 </View>
               </View>
+              </Table3DShell>
             </View>
 
             {/* RIGHT COL: SOUTH (top) + WEST (bottom) */}
@@ -829,6 +960,7 @@ export default function GameScreen() {
       </View>
 
       {/* ── TABLE ──────────────────────────────────────────────────────────── */}
+      <Table3DShell>
       {/* Outer walnut wood border */}
       <View style={styles.tableWood}>
         {/* Gold inlay trim */}
@@ -858,20 +990,20 @@ export default function GameScreen() {
                 {/* Center discard area */}
                 <View style={styles.centerArea}>
                   <View style={styles.discardTop}>
-                    <DiscardZone discards={aiTop.discards} cols={5} minRows={1} />
+                    <DiscardZone discards={aiTop.discards} cols={5} minRows={1} seat="north" />
                   </View>
                   <View style={styles.discardMidRow}>
                     <View style={styles.discardSide}>
-                      <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
+                      <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} seat="west" />
                     </View>
                     <MedallionWithCompass roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                     <View style={styles.discardSide}>
-                      <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
+                      <DiscardZone discards={aiRight.discards} cols={3} minRows={2} seat="east" />
                     </View>
                   </View>
                   {/* South (human) discards */}
                   <View style={styles.discardBottom}>
-                    <DiscardZone discards={human.discards} cols={5} minRows={1} />
+                    <DiscardZone discards={human.discards} cols={5} minRows={1} seat="south" />
                   </View>
                 </View>
 
@@ -914,6 +1046,7 @@ export default function GameScreen() {
           </View>
         </View>
       </View>
+      </Table3DShell>
 
       {/* ── BOTTOM-ROW SEAT PANELS: NORTH (left) + WEST (right) ────────────── */}
       <View style={styles.bottomPanelRow}>
@@ -1078,10 +1211,12 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
     paddingBottom: 8,
-    backgroundColor: 'rgba(4,3,2,0.88)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(120,90,40,0.45)',
+    // Soft top "glass" — translucent dark with a hairline gold rule below.
+    backgroundColor: 'rgba(8,6,4,0.55)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(212,168,64,0.35)',
   },
+  mockHudCompact: { gap: 5, paddingHorizontal: 6 },
   hamburger: { gap: 3, paddingVertical: 2, paddingHorizontal: 2 },
   hamLine: { width: 14, height: 2, borderRadius: 1, backgroundColor: '#C8B090' },
   mockCoinPill: {
@@ -1091,8 +1226,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(140,100,40,0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(212,168,64,0.55)',
+    backgroundColor: 'rgba(20,12,6,0.55)',
   },
   mockCoinDisc: {
     width: 22,
@@ -1105,7 +1241,7 @@ const styles = StyleSheet.create({
     borderColor: '#6A5010',
   },
   mockCoinSym: { color: '#1A1206', fontSize: 10, fontWeight: '900' },
-  mockCoinAmt: { color: '#E8D8A8', fontWeight: '900', fontSize: 13, minWidth: 44 },
+  mockCoinAmt: { color: '#E8D8A8', fontWeight: '900', fontSize: 13, minWidth: 34 },
   mockCoinPlus: {
     width: 22,
     height: 22,
@@ -1117,7 +1253,13 @@ const styles = StyleSheet.create({
     borderColor: '#2A6A22',
   },
   mockCoinPlusTxt: { color: '#7AE060', fontWeight: '900', fontSize: 14, lineHeight: 18 },
-  mockHudCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mockHudCenter: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
   mockDragonSeal: {
     width: 28,
     height: 28,
@@ -1129,21 +1271,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 2,
   },
+  mockDragonSealCompact: { width: 22, height: 22, borderRadius: 11, marginBottom: 1 },
   mockDragonIcon: { fontSize: 15 },
   mockBrand: {
     color: '#E8C860',
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 2.2,
+    textAlign: 'center',
+    width: '100%',
     textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
+  mockBrandCompact: { letterSpacing: 1.2 },
   mockBrandSub: {
-    color: 'rgba(180,160,120,0.75)',
+    color: 'rgba(212,196,158,0.92)',
     fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 1.5,
-    marginTop: 1,
+    letterSpacing: 2,
+    marginTop: 2,
+    textAlign: 'center',
+    width: '100%',
+    textShadowColor: 'rgba(0,0,0,0.65)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   // HUD (legacy bits still used by gift/star/gear)
@@ -1253,6 +1404,131 @@ const styles = StyleSheet.create({
   panelName: { color: '#E8D8A0', fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
   panelScore: { color: '#8A7040', fontSize: 9, fontWeight: '600' },
 
+  // ── Player medallion (new premium collectible-coin avatar) ───────────────
+  medallionRoot: {
+    width: PANEL_W,
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  medallionHalo: {
+    position: 'absolute',
+    top: 0,
+    width: PANEL_W * 0.92,
+    height: PANEL_W * 0.92,
+    borderRadius: 999,
+    backgroundColor: '#F2C660',
+    shadowColor: '#F2C660',
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  medallionGoldRim: {
+    width: PANEL_W * 0.78,
+    height: PANEL_W * 0.78,
+    borderRadius: 999,
+    padding: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  medallionGoldRimActive: {
+    shadowColor: '#F2C660',
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
+  medallionWalnutBezel: {
+    flex: 1,
+    borderRadius: 999,
+    padding: 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medallionAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+  },
+  medallionInnerShade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 999,
+    borderWidth: 6,
+    borderColor: 'rgba(0,0,0,0.18)',
+  },
+  medallionWindChip: {
+    position: 'absolute',
+    top: 2,
+    left: 6,
+    minWidth: 22,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(20,12,4,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,168,64,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  medallionWindText: {
+    color: '#F2D27A',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  medallionRiichiChip: {
+    position: 'absolute',
+    top: 2,
+    right: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(70,8,8,0.92)',
+    borderWidth: 1,
+    borderColor: '#C04040',
+    zIndex: 2,
+  },
+  medallionRiichiText: {
+    color: '#FF8888',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  medallionPlate: {
+    marginTop: 4,
+    minWidth: PANEL_W * 0.72,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(8,6,4,0.62)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(212,168,64,0.35)',
+    alignItems: 'center',
+  },
+  medallionName: {
+    color: '#F2DFA8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  medallionScore: {
+    color: '#9A8050',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+
   // Human panel
   humanPanel: { flex: 1, maxWidth: 180 },
   humanPanelInner: {
@@ -1271,12 +1547,61 @@ const styles = StyleSheet.create({
   topPanelSpacer: { flex: 1 },
   bottomPanelRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 4, paddingTop: 3, gap: 4,
+    paddingHorizontal: 4, paddingTop: 8, gap: 4,
   },
+
+  // Pseudo-3D table shell (perspective + floor shadow; not full 3D room render)
+  table3dRoot: {
+    flex: 1,
+    marginHorizontal: 4,
+    // iOS can paint transformed views outside their layout bounds;
+    // clip to avoid the tilted wood panel covering other UI.
+    overflow: 'hidden',
+    paddingBottom: 14,
+  },
+  table3dRootCompact: {
+    marginHorizontal: 2,
+    paddingBottom: 10,
+  },
+  table3dFloorShadow: {
+    position: 'absolute',
+    left: '5%',
+    right: '5%',
+    bottom: 6,
+    height: 22,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  table3dFloorShadowCompact: {
+    left: '4%',
+    right: '4%',
+    bottom: 3,
+    height: 14,
+    opacity: 0.88,
+  },
+  table3dTilt: {
+    flex: 1,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  table3dTiltPortrait: {
+    transform: [
+      { perspective: 900 },
+      { rotateX: '8deg' },
+      { translateY: 6 },
+    ],
+  } as any,
+  table3dTiltCompact: {
+    transform: [
+      { perspective: 1100 },
+      { rotateX: '5deg' },
+      { translateY: 3 },
+    ],
+  } as any,
 
   // Table structure
   tableWood: {
-    flex: 1, marginHorizontal: 4,
+    flex: 1,
     borderRadius: 20, padding: 9,
     backgroundColor: '#1E0C04',
     borderWidth: 1,
@@ -1361,9 +1686,29 @@ const styles = StyleSheet.create({
   discardMidRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   discardSide: { flex: 1, paddingHorizontal: 4, minWidth: 0 },
   discardBottom: { alignItems: 'center' },
-  discardZone: { gap: 2 },
-  discardRow: { flexDirection: 'row', gap: 2 },
+  discardZone: { gap: 2, width: '100%', alignItems: 'center' },
+  discardZoneSide: {
+    flexDirection: 'row',
+    gap: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  discardCol: { flexDirection: 'column', gap: 2, alignItems: 'center' },
+  discardRow: {
+    flexDirection: 'row',
+    gap: 2,
+    justifyContent: 'center',
+    width: '100%',
+  },
   discardGhost: { width: 22, height: 30, opacity: 0 },
+  discardGhostSide: { width: 30, height: 22, opacity: 0 },
+  discardTileWrapSide: {
+    width: 30,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Medallion + wind compass (flex cluster — never overlaps side discards)
   medallionStack: {
@@ -1425,7 +1770,7 @@ const styles = StyleSheet.create({
   medallionCount: { color: '#F8ECD0', fontSize: 22, fontWeight: '900', lineHeight: 26 },
 
   // Hand on felt
-  handOnFelt: { paddingTop: 4 },
+  handOnFelt: { paddingTop: 4, paddingBottom: 8 },
   handOnFeltDivider: {
     height: 1, marginBottom: 4,
     backgroundColor: 'rgba(80,180,100,0.18)',
@@ -1579,7 +1924,7 @@ const ls = StyleSheet.create({
   panelCol: { justifyContent: 'space-between', paddingVertical: 2 },
 
   // Table
-  tableWrap: { flex: 1 },
+  tableWrap: { flex: 1, overflow: 'visible' },
   tableWood: {
     flex: 1, borderRadius: 16, padding: 7,
     backgroundColor: '#1E0C04',
