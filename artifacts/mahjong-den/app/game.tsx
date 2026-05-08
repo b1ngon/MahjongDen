@@ -248,23 +248,33 @@ function Medallion({
   );
 }
 
-// ─── Wind compass: W S E N letters at the cardinal edges of the felt ─────────
-function WindCompass() {
+/** Wind letters in a tight flex layout around the medallion only (avoids overlapping discards). */
+function MedallionWithCompass({
+  roundWind,
+  dealer,
+  tilesLeft,
+  discardPulse,
+}: {
+  roundWind: number;
+  dealer: number;
+  tilesLeft: number;
+  discardPulse: number;
+}) {
+  const mk = (ch: string) => (
+    <View pointerEvents="none" style={styles.compassMark}>
+      <Text style={styles.compassText}>{ch}</Text>
+    </View>
+  );
   return (
-    <>
-      <View pointerEvents="none" style={[styles.compassMark, styles.compassN]}>
-        <Text style={styles.compassText}>N</Text>
+    <View style={styles.medallionStack}>
+      <View style={styles.compassRowTop}>{mk('N')}</View>
+      <View style={styles.medallionRowMid}>
+        {mk('W')}
+        <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
+        {mk('E')}
       </View>
-      <View pointerEvents="none" style={[styles.compassMark, styles.compassE]}>
-        <Text style={styles.compassText}>E</Text>
-      </View>
-      <View pointerEvents="none" style={[styles.compassMark, styles.compassS]}>
-        <Text style={styles.compassText}>S</Text>
-      </View>
-      <View pointerEvents="none" style={[styles.compassMark, styles.compassW]}>
-        <Text style={styles.compassText}>W</Text>
-      </View>
-    </>
+      <View style={styles.compassRowBot}>{mk('S')}</View>
+    </View>
   );
 }
 
@@ -586,7 +596,6 @@ export default function GameScreen() {
                           <TileWallCol count={leftCount} melds={aiLeft.melds.length > 0 ? aiLeft.melds : undefined} />
                         </View>
                         <View style={ls.centerArea}>
-                          <WindCompass />
                           <View style={styles.discardTop}>
                             <DiscardZone discards={aiTop.discards} cols={6} minRows={1} />
                           </View>
@@ -594,7 +603,7 @@ export default function GameScreen() {
                             <View style={styles.discardSide}>
                               <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
                             </View>
-                            <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
+                            <MedallionWithCompass roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                             <View style={styles.discardSide}>
                               <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
                             </View>
@@ -848,17 +857,14 @@ export default function GameScreen() {
 
                 {/* Center discard area */}
                 <View style={styles.centerArea}>
-                  <WindCompass />
-                  {/* North discards */}
                   <View style={styles.discardTop}>
                     <DiscardZone discards={aiTop.discards} cols={5} minRows={1} />
                   </View>
-                  {/* Mid row: West | Medallion | East */}
                   <View style={styles.discardMidRow}>
                     <View style={styles.discardSide}>
                       <DiscardZone discards={aiLeft.discards} cols={3} minRows={2} />
                     </View>
-                    <Medallion roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
+                    <MedallionWithCompass roundWind={roundWind} dealer={dealer} tilesLeft={tilesLeft} discardPulse={discardPulse} />
                     <View style={styles.discardSide}>
                       <DiscardZone discards={aiRight.discards} cols={3} minRows={2} />
                     </View>
@@ -1352,41 +1358,44 @@ const styles = StyleSheet.create({
   // Center
   centerArea: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 3 },
   discardTop: { alignItems: 'center' },
-  discardMidRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  discardSide: { flex: 1 },
+  discardMidRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  discardSide: { flex: 1, paddingHorizontal: 4, minWidth: 0 },
   discardBottom: { alignItems: 'center' },
   discardZone: { gap: 2 },
   discardRow: { flexDirection: 'row', gap: 2 },
   discardGhost: { width: 22, height: 30, opacity: 0 },
 
-  // Wind compass markers (W/S/E/N around the medallion)
-  compassMark: {
-    position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 5,
+  // Medallion + wind compass (flex cluster — never overlaps side discards)
+  medallionStack: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(12,10,6,0.88)',
+    alignSelf: 'center',
+  },
+  compassRowTop: { flexDirection: 'row', justifyContent: 'center', marginBottom: 4 },
+  medallionRowMid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  compassRowBot: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
+
+  compassMark: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12,10,6,0.92)',
     borderWidth: 1.5,
     borderColor: '#C9A040',
-    zIndex: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.45,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    elevation: 3,
   },
   compassText: {
     color: '#F0D878',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  compassN: { top: 2, left: '50%', transform: [{ translateX: -13 }] } as any,
-  compassS: { bottom: 2, left: '50%', transform: [{ translateX: -13 }] } as any,
-  compassE: { right: 2, top: '50%', transform: [{ translateY: -13 }] } as any,
-  compassW: { left: 2, top: '50%', transform: [{ translateY: -13 }] } as any,
 
   // Medallion (gold rim + black face)
   medallionOuter: {
